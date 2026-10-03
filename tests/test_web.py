@@ -1,14 +1,16 @@
 import http.client
 import json
+import sys
 import tempfile
 import threading
 import unittest
 from pathlib import Path
 
 from digest.config import Config
+from digest.purge import NotFound
 from digest.state import State
 from digest.web.server import create_server
-from digest.web.service import Service
+from digest.web.service import Job, Service
 
 
 def make_service(tmp: Path) -> Service:
@@ -87,6 +89,42 @@ class ServiceTests(unittest.TestCase):
             self.service.start_ingest(["nope"])
 
 
+class CancelJobTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.service = make_service(Path(self._tmp.name))
+
+    def start_sleeping_job(self) -> tuple[Job, threading.Thread]:
+        job = Job(["links"])
+        self.service.jobs[job.id] = job
+        command = [sys.executable, "-c", "import time; print('started', flush=True); time.sleep(60)"]
+        worker = threading.Thread(target=self.service._run_job, args=(job, command), daemon=True)
+        worker.start()
+        return job, worker
+
+    def test_cancel_stops_the_process_and_marks_the_job_cancelled(self):
+        job, worker = self.start_sleeping_job()
+        while "started" not in job.lines:
+            worker.join(0.05)
+        self.service.cancel_job(job.id)
+        worker.join(10)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(job.status, "cancelled")
+        self.assertIsNone(self.service.running_job())
+
+    def test_cancel_unknown_job_is_not_found(self):
+        with self.assertRaises(NotFound):
+            self.service.cancel_job("0" * 12)
+
+    def test_cancel_finished_job_is_rejected(self):
+        job = Job(["links"])
+        job.status = "done"
+        self.service.jobs[job.id] = job
+        with self.assertRaises(RuntimeError):
+            self.service.cancel_job(job.id)
+
+
 class HttpTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -129,6 +167,13 @@ class HttpTests(unittest.TestCase):
     def test_foreign_host_header_is_rejected(self):
         status, _ = self.call("GET", "/api/stats", headers={"Host": "evil.example.com"})
         self.assertEqual(status, 403)
+
+    def test_cancel_route_status_codes(self):
+        self.assertEqual(self.call("POST", "/api/jobs/" + "0" * 12 + "/cancel", {})[0], 404)
+        job = Job(["links"])
+        job.status = "done"
+        self.service.jobs[job.id] = job
+        self.assertEqual(self.call("POST", f"/api/jobs/{job.id}/cancel", {})[0], 409)
 
     def test_ingest_unknown_family_is_404(self):
         self.assertEqual(self.call("POST", "/api/ingest/nope", {})[0], 404)

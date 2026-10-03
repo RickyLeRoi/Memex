@@ -57,5 +57,6 @@ export const api = {
   deleteDocument: (kind: DeleteKind, id: string, token: string) =>
     request<DeleteResult>("DELETE", "/api/documents", { kind, id, token }),
   job: (id: string) => request<JobState>("GET", `/api/jobs/${id}`),
+  cancelJob: (id: string) => request<{ ok: boolean }>("POST", `/api/jobs/${id}/cancel`, {}),
   runningJob: () => request<{ running: JobState | null }>("GET", "/api/jobs"),
 };

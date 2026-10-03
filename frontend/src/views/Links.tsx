@@ -28,7 +28,7 @@ export function Links() {
   const loadRows = useCallback(() => {
     api.links().then(setRows).catch(() => undefined);
   }, []);
-  const { job, error, start, busy } = useJob(loadRows);
+  const { job, error, start, cancel, busy } = useJob(loadRows);
   useEffect(loadRows, [loadRows]);
 
   const parsed = useMemo(() => parseLinks(text), [text]);
@@ -83,7 +83,7 @@ export function Links() {
 
       <ScreenshotDrop busy={busy} onStart={start} />
 
-      <JobPanel job={job} error={error} />
+      <JobPanel job={job} error={error} onCancel={cancel} />
 
       <section className="card">
         <h2>Coda e storico</h2>

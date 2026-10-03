@@ -111,6 +111,7 @@ textarea { width: 100%; margin-top: 8px; resize: vertical; font-family: ui-monos
 .badge.done, .badge.pending { color: var(--ok); }
 .badge.running { color: var(--accent); }
 .badge.failed { color: var(--bad); }
+.badge.cancelled { color: var(--off); }
 .badge.off { color: var(--off); }
 .banner.error { background: color-mix(in srgb, var(--bad) 14%, transparent); border: 1px solid var(--bad); border-radius: 8px; padding: 10px 14px; }
 

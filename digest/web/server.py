@@ -22,6 +22,7 @@ MAX_BODY_BYTES = 1_000_000
 DIST_DIR = Path(os.environ.get("DIGEST_FRONTEND_DIST") or Path(__file__).resolve().parents[2] / "frontend" / "dist")
 LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
 JOB_PATH = re.compile(r"^/api/jobs/([0-9a-f]{12})$")
+JOB_CANCEL_PATH = re.compile(r"^/api/jobs/([0-9a-f]{12})/cancel$")  # 20261003 ++ RG #cancel_ingest
 INGEST_PATH = re.compile(r"^/api/ingest/(links|chat|mail|tickets)$")
 AREA_PATH = re.compile(r"^/api/areas/([a-z0-9-]{1,40})(?:/(approve|reject|vault-purge))?$")
 NOT_AN_AREA_ROUTE = object()
@@ -184,6 +185,9 @@ def make_handler(service: Service, dist_dir: Path):
                     return {"ok": True}
                 if path == "/api/links/retry":
                     service.retry_failed_links()
+                    return {"ok": True}
+                if (m := JOB_CANCEL_PATH.match(path)):
+                    self._purge(lambda: service.cancel_job(m.group(1)))
                     return {"ok": True}
                 if (m := INGEST_PATH.match(path)):
                     return self._ingest(m.group(1), self._read_json())

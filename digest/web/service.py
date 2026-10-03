@@ -38,6 +38,7 @@ HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 DEFAULT_COLOR = "#9ca3af"
 MAX_GROUP_FOR_PAIRS = 30
 LOG_TAIL_LINES = 200
+CANCEL_GRACE_SECONDS = 5  # 20261003 ++ RG #cancel_ingest
 
 
 def normalize_tag(tag: str) -> str:
@@ -69,6 +70,9 @@ class Job:
         self.started_at = iso_z(utcnow())
         self.finished_at: str | None = None
         self.lines: list[str] = []
+        # 20261003 ++ RG #cancel_ingest
+        self.proc: subprocess.Popen | None = None
+        self.cancel_requested = False
 
     def as_dict(self) -> dict:
         return {
@@ -511,16 +515,44 @@ class Service:
                 command, cwd=self.cfg.base_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, encoding="utf-8", errors="replace",
             )
+            job.proc = proc
+            # 20261003 ++ RG #cancel_ingest a cancel may arrive before the process handle is published
+            if job.cancel_requested:
+                self._stop_process(proc)
             assert proc.stdout is not None
             for line in proc.stdout:
                 job.lines.append(line.rstrip())
             job.exit_code = proc.wait()
-            job.status = "done" if job.exit_code == 0 else "failed"
+            if job.cancel_requested:
+                job.lines.append("Interrotto dall'utente.")
+                job.status = "cancelled"
+            else:
+                job.status = "done" if job.exit_code == 0 else "failed"
         except OSError as e:
             job.lines.append(f"cannot start job: {e}")
             job.status = "failed"
         finally:
             job.finished_at = iso_z(utcnow())
+
+    # 20261003 ++ RG #cancel_ingest
+    def cancel_job(self, job_id: str) -> None:
+        job = self.jobs.get(job_id)
+        if job is None:
+            raise NotFound("job not found")
+        with self._lock:
+            if job.status != "running":
+                raise RuntimeError("job is not running")
+            job.cancel_requested = True
+            proc = job.proc
+        if proc is not None:
+            self._stop_process(proc)
+
+    @staticmethod
+    def _stop_process(proc: subprocess.Popen) -> None:
+        if proc.poll() is not None:
+            return
+        proc.terminate()
+        threading.Timer(CANCEL_GRACE_SECONDS, lambda: proc.poll() is None and proc.kill()).start()
 
     def job(self, job_id: str) -> dict | None:
         job = self.jobs.get(job_id)

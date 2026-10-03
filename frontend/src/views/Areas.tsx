@@ -50,7 +50,7 @@ export function Areas() {
   const load = useCallback(() => {
     api.areas().then(setAreas).catch((e: Error) => setError(e.message));
   }, []);
-  const { job, error: jobError, start, busy } = useJob(load);
+  const { job, error: jobError, start, cancel, busy } = useJob(load);
   useEffect(load, [load]);
 
   const run = async (action: () => Promise<unknown>, message?: string) => {
@@ -97,7 +97,7 @@ export function Areas() {
         </p>
       </section>
 
-      <JobPanel job={job} error={jobError} />
+      <JobPanel job={job} error={jobError} onCancel={cancel} />
 
       <section className="card">
         <h2>Aree</h2>

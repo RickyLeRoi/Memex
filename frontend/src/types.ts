@@ -140,7 +140,7 @@ export interface DeleteResult {
 export interface JobState {
   id: string;
   sources: string[];
-  status: "running" | "done" | "failed";
+  status: "running" | "done" | "failed" | "cancelled";
   exit_code: number | null;
   started_at: string;
   finished_at: string | null;

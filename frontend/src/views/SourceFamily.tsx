@@ -21,7 +21,7 @@ export function SourceFamily({ family }: { family: Family }) {
       setSelected((current) => (current.length ? current : mine.filter((s) => s.enabled && s.configured).map((s) => s.name)));
     }).catch(() => undefined);
   }, [family]);
-  const { job, error, start, busy } = useJob(load);
+  const { job, error, start, cancel, busy } = useJob(load);
   useEffect(load, [load]);
 
   const toggle = (name: string) =>
@@ -74,7 +74,7 @@ export function SourceFamily({ family }: { family: Family }) {
           </button>
         </div>
       </section>
-      <JobPanel job={job} error={error} />
+      <JobPanel job={job} error={error} onCancel={cancel} />
     </div>
   );
 }

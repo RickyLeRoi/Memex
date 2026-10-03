@@ -42,6 +42,15 @@ export function useJob(onFinished?: () => void) {
     [track],
   );
 
+  const cancel = useCallback(async () => {
+    if (!job) return;
+    try {
+      await api.cancelJob(job.id);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, [job]);
+
   useEffect(() => {
     let stop: (() => void) | undefined;
     api.runningJob().then(({ running }) => {
@@ -53,5 +62,5 @@ export function useJob(onFinished?: () => void) {
     return () => stop?.();
   }, [track]);
 
-  return { job, error, start, busy: job?.status === "running" };
+  return { job, error, start, cancel, busy: job?.status === "running" };
 }
