@@ -1,0 +1,48 @@
+# Memex — configuration for the Docker image
+# Copy this file to ./config/config.toml (it is mounted read-only at /config/config.toml) and edit it.
+# Every key not listed here keeps its default; the full list with comments is digest/config.example.toml.
+# Secrets (tokens, passwords) do NOT go here: put them in a .env file next to docker-compose.yml.
+
+data_dir = "/data"                # state, media, documents, token cache: the named volume
+reports_dir = "/data/reports"
+initial_lookback_days = 3
+
+[llm]
+# Inside the container "localhost" is the container itself. Use the host (Ollama running on the Docker host):
+base_url = "http://host.docker.internal:11434/v1"
+# ...or your Ollama server on the LAN:
+# base_url = "http://192.168.1.10:11434/v1"
+model = "gemma3:4b"
+vision_model = "gemma3:4b"        # screenshots and scanned PDF pages
+
+[extract]
+me = "Your Name"
+language = "italiano"
+focus = ""
+
+[links]
+enabled = true
+file = "/data/links.txt"          # the GUI appends here, so it must live on the writable volume
+
+[server]
+# Extra Host names the GUI answers to (besides localhost), e.g. when published on the LAN:
+# allowed_hosts = ["192.168.1.20", "digest.lan"]
+# token = ""                      # better: DIGEST_GUI_TOKEN in .env
+
+# Enable what you use, then restart. Teams/Outlook need `docker compose run --rm digest login` once.
+[mail]
+enabled = false
+[teams]
+enabled = false
+[notion]
+enabled = false
+[slack]
+enabled = false
+[gmail]
+enabled = false
+[jira]
+enabled = false
+
+[obsidian]
+enabled = false
+# vault = "/vault"                # mount your vault at /vault in docker-compose.yml

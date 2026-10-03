@@ -1,0 +1,46 @@
+services:
+  digest:
+    build:
+      context: .
+      args:
+        EXTRAS: "social,pdf"
+    image: memex:latest
+    restart: unless-stopped
+    ports:
+      # Loopback only: the GUI reads mail and chats and can delete data. For LAN access set DIGEST_GUI_TOKEN or use a TLS proxy.
+      - "127.0.0.1:8765:8765"
+    environment:
+      # Safe only because the port is loopback-only: remove it if you publish on the LAN (the server then requires a token).
+      DIGEST_ALLOW_UNAUTHENTICATED: "1"
+      DIGEST_GUI_TOKEN: "${DIGEST_GUI_TOKEN:-}"
+      DIGEST_ALLOWED_HOSTS: "${DIGEST_ALLOWED_HOSTS:-}"
+      # Secrets come from .env (never commit it).
+      SLACK_TOKEN: "${SLACK_TOKEN:-}"
+      GMAIL_USER: "${GMAIL_USER:-}"
+      GMAIL_APP_PASSWORD: "${GMAIL_APP_PASSWORD:-}"
+      JIRA_BASE_URL: "${JIRA_BASE_URL:-}"
+      JIRA_EMAIL: "${JIRA_EMAIL:-}"
+      JIRA_API_TOKEN: "${JIRA_API_TOKEN:-}"
+      NOTION_TOKEN: "${NOTION_TOKEN:-}"
+      DIGEST_GRAPH_CLIENT_ID: "${DIGEST_GRAPH_CLIENT_ID:-}"
+      DIGEST_GRAPH_TENANT: "${DIGEST_GRAPH_TENANT:-}"
+      # Behind a proxy that re-signs TLS (corporate networks): mount the CA and uncomment.
+      # SSL_CERT_FILE: /certs/company-ca.pem
+    volumes:
+      - ./config:/config:ro
+      - digest-data:/data
+      # Obsidian vault (set [obsidian] vault = "/vault" in the config):
+      # - /path/to/YourVault:/vault
+      # - ./certs:/certs:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  digest-data:

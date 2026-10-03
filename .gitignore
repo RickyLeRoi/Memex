@@ -1,0 +1,45 @@
+.venv/
+__pycache__/
+*.egg-info/
+*.pyc
+
+# local state, secrets and user data: never in the repository
+config.toml
+config/
+links.txt
+reports/
+data/
+.env
+*.log
+certs/
+
+frontend/node_modules/
+frontend/dist/
+
+# tooling leftovers
+.playwright-mcp/
+.claude/
+PLAN.md
+TASK*.md
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# env variants (the example stays tracked)
+.env.*
+!.env.example
+
+# local databases and tool caches
+*.db
+*.sqlite
+*.sqlite3
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.tsbuildinfo
+build/
+
+# working notes
+QUESTIONS.md

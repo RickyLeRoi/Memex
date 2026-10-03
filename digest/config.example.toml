@@ -1,0 +1,107 @@
+# Memex — configurazione
+# I percorsi relativi sono relativi alla cartella di questo file.
+
+data_dir = "~/.memex"      # stato (SQLite), cache token Microsoft, log
+reports_dir = "reports"
+initial_lookback_days = 3         # al primo run, quanto andare indietro
+
+[llm]
+# Qualsiasi endpoint compatibile OpenAI (Ollama :11434, LM Studio :1234, llama.cpp :8080, vLLM :8000), sempre con /v1
+base_url = "http://localhost:11434/v1"
+model = "qwen2.5:14b"
+api_key = "local"                 # o env DIGEST_LLM_API_KEY se il tuo endpoint lo richiede
+temperature = 0.1
+max_tokens = 4096
+timeout = 600
+json_mode = "json_object"         # "none" se il tuo server non supporta response_format
+chunk_chars = 12000               # ~3.500 token: con Ollama alza il contesto (vedi README)
+vision_model = ""                 # es. "qwen2.5vl:7b" per leggere il testo nelle immagini dei post
+# extra_body = { top_p = 0.9 }    # parametri extra passati così come sono
+
+[extract]
+me = "Nome Cognome"          # serve a riconoscere i task assegnati a te
+language = "italiano"
+focus = "scadenze di progetto, richieste dei clienti, bug in produzione, decisioni tecniche, strumenti e librerie per il web"
+final_summary = true
+
+[graph]
+# App registration su Entra ID (Azure AD), vedi README. Solo permessi delegati.
+client_id = ""                    # o env DIGEST_GRAPH_CLIENT_ID
+tenant = "organizations"          # meglio l'ID del tuo tenant
+
+[mail]
+enabled = false
+folders = ["inbox"]               # nomi noti (inbox, sentitems, archive) o ID cartella
+max_messages = 200
+max_body_chars = 6000
+strip_quoted = true
+exclude_senders = ["noreply", "no-reply", "donotreply", "newsletter", "notifications@"]
+
+[teams]
+enabled = false
+max_chats = 50
+max_messages_per_chat = 200
+context_messages = 5              # messaggi già letti inclusi come contesto
+channels = false                  # canali dei team: richiede consenso admin (ChannelMessage.Read.All)
+channel_allowlist = []            # es. ["Progetto X/Generale"]; vuoto = tutti
+max_messages_per_channel = 100
+
+[notion]
+enabled = false
+token = ""                        # meglio env NOTION_TOKEN
+max_pages = 50
+max_depth = 2
+max_page_chars = 15000
+
+[slack]
+enabled = false
+token = ""                        # meglio env SLACK_TOKEN. Scope: *:history, *:read (channels, groups, im, mpim) e users:read
+channels = []                     # chat: nomi senza '#', ID, oppure "@utente" per un DM
+ticket_channels = []              # canali letti come sorgente "slack_tickets" (sezione Ticket della GUI)
+max_messages_per_channel = 200
+include_threads = true
+
+[gmail]
+enabled = false
+user = ""                         # o env GMAIL_USER
+app_password = ""                 # password per app Google (IMAP), o env GMAIL_APP_PASSWORD
+folders = ["INBOX"]
+max_messages = 200
+max_body_chars = 6000
+strip_quoted = true
+exclude_senders = ["noreply", "no-reply", "donotreply", "newsletter", "notifications@"]
+
+[jira]
+enabled = false
+base_url = ""                     # https://tuaazienda.atlassian.net, o env JIRA_BASE_URL
+email = ""                        # o env JIRA_EMAIL
+api_token = ""                    # meglio env JIRA_API_TOKEN
+projects = []                     # chiavi progetto; vuoto = tutto ciò che vedi
+jql = ""                          # clausola extra, es. "assignee = currentUser()"
+max_issues = 100
+max_comments = 15
+
+[links]
+enabled = true
+file = "links.txt"
+use_ytdlp = true                  # Instagram, YouTube, TikTok... (pip install '.[social]')
+cookies_from_browser = ""         # "firefox" / "chrome" se Instagram chiede il login
+use_playwright = false            # rendering con browser headless per pagine JS (pip install '.[render]')
+transcribe = false                # trascrive reel/video con faster-whisper (pip install '.[transcribe]')
+whisper_model = "small"
+max_attempts = 3
+max_chars = 15000
+fetch_images = true               # tiene UNA immagine di copertina per link (JSON-LD > og:image > twitter:image)
+max_image_bytes = 5000000
+max_screenshot_bytes = 10000000
+max_pdf_bytes = 50000000
+max_pdf_pages = 15                # pagine lette per PDF (il modello di visione è lento sulle scansioni)
+
+[obsidian]
+enabled = false
+vault = ""                        # es. "~/Documents/Obsidian/Vault"
+folder = "Digest"                 # note giornaliere: Digest/2026-10-01.md
+links_folder = "Digest/Link"
+tasks_format = true               # "- [ ] ... 📅 2026-10-03 ⏫" (plugin Tasks)
+copy_media = true                 # copia le immagini nel vault (Digest/Link/media)
+copy_documents = true             # copia i PDF caricati nel vault

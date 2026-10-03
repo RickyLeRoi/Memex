@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[social,pdf]"
+      - run: python -m unittest discover -s tests -t . -v
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [python, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t memex:ci .
+      - name: The container refuses to open the GUI to the network without a token
+        run: |
+          mkdir -p /tmp/ci-config && cp docker/config.docker.toml /tmp/ci-config/config.toml
+          if docker run --rm -v /tmp/ci-config:/config:ro -e DIGEST_ALLOW_UNAUTHENTICATED=0 memex:ci serve; then
+            echo "expected the server to refuse to start without a token"; exit 1
+          fi
+      - name: The container serves /healthz
+        run: |
+          docker run -d --name digest-ci -p 127.0.0.1:8765:8765 -v /tmp/ci-config:/config:ro \
+            -e DIGEST_ALLOW_UNAUTHENTICATED=1 memex:ci
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:8765/healthz && exit 0; sleep 1; done
+          docker logs digest-ci; exit 1

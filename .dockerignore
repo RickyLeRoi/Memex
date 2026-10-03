@@ -1,0 +1,25 @@
+.git
+.github
+.venv
+.playwright-mcp
+**/__pycache__
+**/*.pyc
+*.egg-info
+
+# local state and secrets never go into the image
+config.toml
+config/
+links.txt
+reports/
+data/
+.env
+*.log
+
+# built inside the image
+frontend/node_modules
+frontend/dist
+
+tests/
+PLAN.md
+docker-compose.yml
+Dockerfile
