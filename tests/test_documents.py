@@ -261,7 +261,7 @@ class PipelineAndDeleteTests(TempCase):
         self.assertEqual(errors, [])
         result = {"started": datetime(2026, 10, 2, 9, 30).astimezone(), "stats": {"link": 1}, "items": [],
                   "links": [], "errors": [], "highlights": []}
-        args = SimpleNamespace(dry_run=False, no_advance=False)
+        args = SimpleNamespace(dry_run=False, no_advance=False, only_local=False)
         cli._run_links(self.cfg, self.state, vision, args, result, summarize_link, Vocabulary())
         self.assertEqual(docs[0].url, url)
         self.state.save_items("run1", result["items"])

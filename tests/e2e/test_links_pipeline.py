@@ -102,6 +102,7 @@ class LinksPipelineTests(unittest.TestCase):
     def test_only_local_processes_uploaded_files_and_leaves_the_web_queue_alone(self):
         self.queue("/article")
         screenshot = "image://" + "a" * 40 + ".png"
+        (self.root / "data").mkdir(exist_ok=True)
         with State(self.root / "data" / "state.sqlite") as state:
             state.add_link(screenshot, "")
             state.add_link(f"{self.site.url}/recipe", "")
