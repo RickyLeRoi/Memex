@@ -434,6 +434,37 @@ class LinkFetcher:
         return f
 
 
+def _line_url(line: str) -> str | None:
+    match = URL_RE.search(line)
+    return match.group(0).rstrip(").,;") if match and not line.strip().startswith("#") else None
+
+
+# 20261004 ++ RG #links_file_queue links.txt is a queue: a link that was ingested successfully leaves it
+def prune_links_file(cfg: Config, state: State) -> int:
+    path = cfg.links_path
+    if not path.is_file():
+        return 0
+    done = {row[0] for row in state.db.execute("SELECT url FROM links WHERE status='done'")}
+    kept, removed = [], 0
+    for line in path.read_text(encoding="utf-8").split("\n"):
+        if _line_url(line) in done:
+            removed += 1
+            continue
+        kept.append(line)
+    if removed:
+        tmp = path.with_name(path.name + ".prune.tmp")
+        tmp.write_text("\n".join(kept), encoding="utf-8")
+        os.replace(tmp, path)
+        log.info("links.txt: rimossi %d link già elaborati", removed)
+    return removed
+
+
+def queued_links_text(cfg: Config, state: State) -> str:
+    """links.txt lines that still wait to be ingested, in the same "url  note" format the textarea accepts."""
+    done = {row[0] for row in state.db.execute("SELECT url FROM links WHERE status='done'")}
+    return "\n".join(f"{url}  {note}".rstrip() for url, note in read_links_file(cfg.links_path) if url not in done)
+
+
 def sync_links(cfg: Config, state: State) -> int:
     added = 0
     for url, note in read_links_file(cfg.links_path):

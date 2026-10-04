@@ -135,6 +135,8 @@ def make_handler(service: Service, dist_dir: Path):
                     return service.sources_status()
                 if path == "/api/links":
                     return service.list_links()
+                if path == "/api/links/file":
+                    return {"text": service.queued_links_text()}
                 if path == "/api/links/detail":
                     url = (query.get("url") or [""])[0]
                     return self._purge(lambda: service.link_detail(url))
@@ -275,12 +277,12 @@ def make_handler(service: Service, dist_dir: Path):
                 links = body.get("links")
                 if not isinstance(links, list):
                     raise ApiError(400, "links must be a list")
-                added = service.add_links([x for x in links if isinstance(x, dict)])
+                outcome = service.add_links([x for x in links if isinstance(x, dict)])
                 sources = ["links"]
             else:
                 requested = body.get("sources") or FAMILIES[family]
                 sources = [s for s in requested if s in FAMILIES[family]]
-                added = 0
+                outcome = {"added": 0, "already_ingested": 0}
                 if not sources:
                     raise ApiError(400, f"sources must be a subset of {FAMILIES[family]}")
             try:
@@ -289,7 +291,7 @@ def make_handler(service: Service, dist_dir: Path):
                 raise ApiError(409, str(e)) from None
             except ValueError as e:
                 raise ApiError(400, str(e)) from None
-            return {"job": job.id, "added": added}
+            return {"job": job.id, **outcome}
 
         def _serve_media(self, name: str) -> None:
             found = service.media_file(name)

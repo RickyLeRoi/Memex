@@ -25,11 +25,16 @@ export function Links() {
   const [text, setText] = useState("");
   const [rows, setRows] = useState<LinkRow[]>([]);
   const [toDelete, setToDelete] = useState<DeleteTarget | null>(null);
+  const [alreadyIngested, setAlreadyIngested] = useState(0);
   const loadRows = useCallback(() => {
     api.links().then(setRows).catch(() => undefined);
   }, []);
   const { job, error, start, cancel, busy } = useJob(loadRows);
   useEffect(loadRows, [loadRows]);
+  // 20261004 ++ RG #links_file_queue links still waiting in links.txt are offered in the textarea (never over typed text)
+  useEffect(() => {
+    api.queuedLinksText().then(({ text: queued }) => setText((current) => current || queued)).catch(() => undefined);
+  }, []);
 
   const parsed = useMemo(() => parseLinks(text), [text]);
   const valid = parsed.filter((p) => p.valid);
@@ -39,6 +44,7 @@ export function Links() {
     start(async () => {
       const result = await api.ingestLinks(valid.map(({ url, note }) => ({ url, note })));
       setText("");
+      setAlreadyIngested(result.already_ingested);
       loadRows();
       return result;
     });
@@ -72,6 +78,11 @@ export function Links() {
               </li>
             ))}
           </ul>
+        )}
+        {alreadyIngested > 0 && (
+          <div className="banner" role="status">
+            {alreadyIngested} {alreadyIngested === 1 ? "link era già ingerito" : "link erano già ingeriti"}: non vengono rielaborati e sono stati tolti da links.txt.
+          </div>
         )}
         <div className="row">
           <button className="primary" disabled={valid.length === 0 || busy} onClick={ingest}>

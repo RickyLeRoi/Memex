@@ -17,13 +17,14 @@ export const api = {
   stats: () => request<Stats>("GET", "/api/stats"),
   sources: () => request<SourceStatus[]>("GET", "/api/sources"),
   links: () => request<LinkRow[]>("GET", "/api/links"),
+  queuedLinksText: () => request<{ text: string }>("GET", "/api/links/file"),
   graph: (includeDomain: boolean) => request<GraphData>("GET", `/api/graph?domain=${includeDomain ? 1 : 0}`),
   tags: () => request<TagInfo>("GET", "/api/graph/tags"),
   saveTags: (tags: string[]) => request<{ linking: string[] }>("PUT", "/api/graph/tags", { tags }),
   retryLinks: () => request<{ ok: boolean }>("POST", "/api/links/retry"),
   reprocessLink: (url: string) => request<{ ok: boolean }>("POST", "/api/links/reprocess", { url }),
   ingestLinks: (links: { url: string; note: string }[]) =>
-    request<{ job: string; added: number }>("POST", "/api/ingest/links", { links }),
+    request<{ job: string; added: number; already_ingested: number }>("POST", "/api/ingest/links", { links }),
   ingestFamily: (family: string, sources: string[]) =>
     request<{ job: string }>("POST", `/api/ingest/${family}`, { sources }),
   areas: () => request<Area[]>("GET", "/api/areas"),

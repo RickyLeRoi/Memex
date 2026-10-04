@@ -205,6 +205,24 @@ def cmd_reclassify(cfg: Config, args) -> int:
     return 0
 
 
+# 20261004 ++ RG #vault_export
+def cmd_vault_export(cfg: Config, args) -> int:
+    from .obsidian import export_links_to_vault
+
+    state = State(cfg.data_path / "state.sqlite")
+    try:
+        excluded = {a["name"] for a in state.list_areas() if a["exclude_from_vault"]}
+        counts = export_links_to_vault(cfg, state, excluded)
+    except (ValueError, OSError) as e:
+        print(f"Errore: {e}", file=sys.stderr)
+        return 2
+    finally:
+        state.close()
+    print(f"Note scritte: {counts['written']} · già presenti: {counts['already_present']} · "
+          f"aree escluse: {counts['excluded_area']}")
+    return 0
+
+
 def cmd_serve(cfg: Config, args) -> int:
     from .web.server import create_server
     from .web.service import Service
@@ -300,6 +318,11 @@ def _run_links(cfg: Config, state: State, llm: LLM, args, result: dict, summariz
             collect_proposals(state, items)
             result["items"] += items
             result["errors"] += [f"{d.url}: {e}" for e in item_errors]
+    # 20261004 ++ RG #links_file_queue
+    if not args.no_advance:
+        from .sources.links import prune_links_file
+
+        prune_links_file(cfg, state)
 
 
 def _dump(cfg: Config, src: str, docs: list[Doc], started: datetime) -> None:
@@ -328,6 +351,7 @@ def main(argv: list[str] | None = None) -> int:
     lk.add_argument("--limit", type=int, default=30)
     rc = sub.add_parser("reclassify", help="rivede tutto l'archivio per una nuova area approvata")
     rc.add_argument("--area", required=True)
+    sub.add_parser("vault-export", help="scrive nel vault le note dei link già elaborati")
     sv = sub.add_parser("serve", help="avvia l'interfaccia grafica locale")
     sv.add_argument("--host", default="127.0.0.1")
     sv.add_argument("--port", type=int, default=8765)
@@ -349,7 +373,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     setup_logging(cfg, args.verbose)
     handlers = {"login": cmd_login, "check": cmd_check, "add": cmd_add, "links": cmd_links, "run": cmd_run,
-                "serve": cmd_serve, "reclassify": cmd_reclassify}
+                "serve": cmd_serve, "reclassify": cmd_reclassify, "vault-export": cmd_vault_export}
     return handlers[args.cmd](cfg, args)
 
 

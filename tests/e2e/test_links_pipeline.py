@@ -77,6 +77,28 @@ class LinksPipelineTests(unittest.TestCase):
 
         self.assertEqual(self.row("/empty")["status"], "error")
 
+    def links_file_urls(self) -> list[str]:
+        text = (self.root / "links.txt").read_text(encoding="utf-8")
+        return [line.split()[0] for line in text.splitlines() if line.strip() and not line.startswith("#")]
+
+    def test_ingested_links_leave_links_file_and_failed_ones_stay(self):
+        self.queue("/article", "/blocked")
+        with (self.root / "links.txt").open("a", encoding="utf-8") as fh:
+            fh.write("# promemoria personale\n")
+
+        run_digest(self.config, "run", "--sources", "links")
+
+        self.assertEqual(self.links_file_urls(), [f"{self.site.url}/blocked"])
+        self.assertIn("# promemoria personale", (self.root / "links.txt").read_text(encoding="utf-8"))
+
+    def test_links_file_is_untouched_when_the_run_does_not_advance(self):
+        self.queue("/article")
+
+        run_digest(self.config, "run", "--sources", "links", "--no-advance")
+        run_digest(self.config, "run", "--sources", "links", "--dry-run")
+
+        self.assertEqual(self.links_file_urls(), [f"{self.site.url}/article"])
+
     def test_second_run_does_not_reprocess_done_links(self):
         self.queue("/article")
         run_digest(self.config, "run", "--sources", "links")

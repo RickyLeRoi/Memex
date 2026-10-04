@@ -100,6 +100,8 @@ Ad ogni run il tool:
 - aggiunge una sezione alla nota del giorno `Digest/AAAA-MM-GG.md`. Le voci di "Tocca a te" e "Scadenze" sono task nel formato del plugin **Tasks** (`- [ ] … 📅 2026-10-03 ⏫`), quindi le ritrovi nelle tue query;
 - crea una nota per ogni link in `Digest/Link/` con frontmatter (`url`, `tags`, `rilevanza`), comoda da interrogare con Dataview, e la collega con `[[wikilink]]`.
 
+I link elaborati **prima** di configurare il vault non vengono riscritti da soli. Per portarli nel vault: `python -m digest vault-export`. Legge l'analisi già salvata (niente LLM, niente rete), scrive solo le note mancanti, non sovrascrive quelle che hai modificato e rispetta le aree "fuori dal vault". Nel container: `docker compose exec digest python -m digest -c /config/config.toml vault-export`. Le note giornaliere storiche non si ricostruiscono.
+
 ## Interfaccia grafica
 
 ```bash

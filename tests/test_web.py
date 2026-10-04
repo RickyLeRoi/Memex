@@ -82,7 +82,22 @@ class ServiceTests(unittest.TestCase):
             {"url": "https://new.example.com", "note": "n"}, {"url": "not-a-url"},
             {"url": "https://new.example.com"},
         ])
-        self.assertEqual(added, 1)
+        self.assertEqual(added, {"added": 1, "already_ingested": 0})
+
+    def test_links_already_ingested_are_reported_and_leave_links_file(self):
+        links_file = self.service.cfg.links_path
+        links_file.write_text("https://a.example.com/pasta  Pasta\nhttps://waiting.example.com  attesa\n", encoding="utf-8")
+
+        outcome = self.service.add_links([{"url": "https://a.example.com/pasta"}, {"url": "https://b.example.com/torta"}])
+
+        self.assertEqual(outcome, {"added": 0, "already_ingested": 2})
+        self.assertEqual(links_file.read_text(encoding="utf-8"), "https://waiting.example.com  attesa\n")
+
+    def test_queued_links_text_lists_only_links_not_yet_ingested(self):
+        self.service.cfg.links_path.write_text(
+            "https://a.example.com/pasta  Pasta\nhttps://waiting.example.com  attesa\n# nota\n", encoding="utf-8")
+
+        self.assertEqual(self.service.queued_links_text(), "https://waiting.example.com  attesa")
 
     def test_unknown_source_is_rejected(self):
         with self.assertRaises(ValueError):

@@ -25,6 +25,7 @@ export function ScreenshotDrop({ busy, onStart }: Props) {
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const stagedRef = useRef<Staged[]>([]);
+  const nextId = useRef(0);
   stagedRef.current = staged;
 
   const add = useCallback((files: File[]) => {
@@ -34,7 +35,8 @@ export function ScreenshotDrop({ busy, onStart }: Props) {
       const maxBytes = file.type === PDF_TYPE ? MAX_PDF_BYTES : MAX_IMAGE_BYTES;
       if (!ACCEPTED.includes(file.type)) rejected.push(`${file.name || "file"}: solo PNG, JPEG, WebP o PDF`);
       else if (file.size > maxBytes) rejected.push(`${file.name || "file"}: oltre ${maxBytes / 1_000_000} MB`);
-      else fresh.push({ id: crypto.randomUUID(), file, preview: URL.createObjectURL(file), note: "" });
+      // 20261004 ** RG #insecure_context crypto.randomUUID does not exist over plain http on a LAN address
+      else fresh.push({ id: String(nextId.current++), file, preview: URL.createObjectURL(file), note: "" });
     }
     setProblems(rejected);
     if (fresh.length) setStaged((current) => [...current, ...fresh]);

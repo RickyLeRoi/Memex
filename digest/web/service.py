@@ -16,7 +16,7 @@ from urllib.parse import urlparse
 from ..config import Config
 from ..media import CONTENT_TYPE_BY_EXT, MEDIA_NAME, store_upload
 from ..sources.documents import DOC_NAME, DOC_SCHEME, store_pdf
-from ..sources.links import IMAGE_SCHEME
+from ..sources.links import IMAGE_SCHEME, prune_links_file, queued_links_text, read_links_file
 from ..purge import NotFound, Purger
 from ..state import FALLBACK_AREA, State
 from ..tags import GENERIC_TAGS, ORIGIN_AUTO, ORIGIN_MANUAL, ORIGIN_MODEL, Vocabulary, canonical
@@ -180,8 +180,15 @@ class Service:
         return links
 
     @with_state
-    def add_links(self, state, links: list[dict]) -> int:
+    def queued_links_text(self, state) -> str:
+        return queued_links_text(self.cfg, state)
+
+    @with_state
+    def add_links(self, state, links: list[dict]) -> dict:
         added = 0
+        already_ingested: set[str] = set()
+        # 20261004 ** RG #links_file_queue a URL already listed in links.txt must not be appended a second time
+        listed = {url for url, _ in read_links_file(self.cfg.links_path)}
         with self.cfg.links_path.open("a", encoding="utf-8") as fh:
             for entry in links:
                 url = str(entry.get("url", "")).strip()
@@ -189,9 +196,15 @@ class Service:
                 if not url.lower().startswith(("http://", "https://")):
                     continue
                 if state.add_link(url, note):
-                    fh.write(url + (f"  {note}" if note else "") + "\n")
+                    if url not in listed:
+                        fh.write(url + (f"  {note}" if note else "") + "\n")
                     added += 1
-        return added
+                # 20261004 ++ RG #links_file_queue a link that was already ingested is reported and leaves links.txt
+                elif (row := state.link_row(url)) and row["status"] == "done":
+                    already_ingested.add(url)
+        if already_ingested:
+            prune_links_file(self.cfg, state)
+        return {"added": added, "already_ingested": len(already_ingested)}
 
     @with_state
     def areas(self, state) -> list[dict]:

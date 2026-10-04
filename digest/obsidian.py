@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -116,3 +117,36 @@ def write_obsidian(result: dict, cfg: Config, excluded_areas: set[str] | frozens
         fm = ["---", f"data: {day}", "tags: [digest]", "---", "", f"# Digest {day}", ""]
         note.write_text("\n".join(fm + body), encoding="utf-8")
     return note
+
+
+# 20261004 ++ RG #vault_export notes for links digested before the vault was configured
+def export_links_to_vault(cfg: Config, state, excluded_areas: set[str] | frozenset[str] = frozenset()) -> dict:
+    oc = cfg.obsidian
+    if not oc.vault:
+        raise ValueError("imposta [obsidian] vault nel config")
+    vault = Path(os.path.expanduser(oc.vault))
+    if not vault.is_dir():
+        raise ValueError(f"il vault non esiste: {vault}")
+    links_dir = vault / oc.links_folder
+    noted = {m.group(1) for path in links_dir.glob("*.md")
+             if (m := re.search(r"^url: (.+)$", path.read_text(encoding="utf-8")[:2000], re.M))} if links_dir.is_dir() else set()
+    written, skipped_existing, skipped_area = 0, 0, 0
+    rows = state.db.execute(
+        "SELECT url, analysis, processed_at FROM links WHERE status='done' AND analysis IS NOT NULL ORDER BY processed_at"
+    ).fetchall()
+    for url, raw, processed_at in rows:
+        ln = json.loads(raw)
+        if ln.get("area") in excluded_areas:
+            skipped_area += 1
+            continue
+        if _yaml_str(url) in noted:
+            skipped_existing += 1
+            continue
+        ln["url"] = url
+        ln.setdefault("title", url)
+        ln["image"] = ln.get("image") or state.link_image(url)
+        write_link_note(vault, oc.links_folder, ln, (processed_at or "")[:10] or "1970-01-01",
+                        cfg.data_path / "media" if oc.copy_media else None,
+                        cfg.data_path / "docs" if oc.copy_documents else None)
+        written += 1
+    return {"written": written, "already_present": skipped_existing, "excluded_area": skipped_area}
