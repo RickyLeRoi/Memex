@@ -35,8 +35,13 @@ MAX_CAROUSEL_SLIDES = 20
 INSTAGRAM_NEXT_SELECTOR = 'button[aria-label="Next"], button[aria-label="Avanti"]'
 # 20261004 ++ RG #docker the container drops every capability, so Chromium cannot build its own sandbox
 CHROMIUM_ARGS = ["--no-sandbox", "--disable-dev-shm-usage"]
-INSTAGRAM_SLIDES_JS = """() => [...document.querySelectorAll('article img')]
-    .filter(img => img.naturalWidth >= 320).map(img => img.currentSrc || img.src)"""
+# 20261004 ** RG #instagram_logged_out the logged-out layout has no <article>: pick the big images instead
+INSTAGRAM_SLIDES_JS = """() => {
+    const big = [...document.querySelectorAll('img')].filter(img => img.naturalWidth >= 320);
+    const inArticle = big.filter(img => img.closest('article'));
+    return (inArticle.length ? inArticle : big).map(img => img.currentSrc || img.src);
+}"""
+INSTAGRAM_COOKIE_CONSENT = re.compile(r"Rifiuta cookie facoltativi|Decline optional cookies", re.I)
 
 
 # 20261002 ++ RG #screenshots uploaded screenshots live in the same queue under an internal image:// reference
@@ -256,11 +261,15 @@ class LinkFetcher:
             try:
                 context = browser.new_context(user_agent=UA, locale="it-IT")
                 cookies = self._browser_cookies()
+                # 20261004 ++ RG #instagram_debug
+                log.info("Cookie Instagram caricati: %d (sessionid: %s)", len(cookies),
+                         any(c["name"] == "sessionid" for c in cookies))
                 if cookies:
                     context.add_cookies(cookies)
                 page = context.new_page()
                 page.goto(url, wait_until="domcontentloaded", timeout=45000)
-                page.wait_for_selector("article img", timeout=15000)
+                self._dismiss_instagram_consent(page)
+                page.wait_for_function(f"({INSTAGRAM_SLIDES_JS})().length > 0", timeout=15000)
                 slides: dict[str, str] = {}
                 for _ in range(MAX_CAROUSEL_SLIDES):
                     for src in page.evaluate(INSTAGRAM_SLIDES_JS):
@@ -278,6 +287,13 @@ class LinkFetcher:
                 return []
             finally:
                 browser.close()
+
+    @staticmethod
+    def _dismiss_instagram_consent(page) -> None:
+        try:
+            page.get_by_text(INSTAGRAM_COOKIE_CONSENT).first.click(timeout=4000)
+        except Exception:  # no banner for this session
+            pass
 
     def _dump_instagram_debug(self, page) -> None:
         if page is None:
