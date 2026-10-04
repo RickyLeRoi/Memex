@@ -68,7 +68,7 @@ export function ScreenshotDrop({ busy, onStart }: Props) {
       for (const item of batch) await api.uploadFile(item.file, item.note);
       batch.forEach((s) => URL.revokeObjectURL(s.preview));
       setStaged([]);
-      return api.ingestLinks([]);
+      return api.ingestLocalFiles();
     });
   };
 

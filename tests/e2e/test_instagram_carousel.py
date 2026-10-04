@@ -114,7 +114,9 @@ class CookiesFileTests(unittest.TestCase):
                 loaded = fetcher._browser_cookies()
 
             self.assertEqual([(c["name"], c["value"]) for c in loaded], [("sessionid", "abc123")])
-            self.assertEqual(fetcher._ytdlp_cookie_opts(), {"cookiefile": str(cookies)})
+            cookiefile = fetcher._ytdlp_cookie_opts()["cookiefile"]
+            self.assertNotEqual(cookiefile, str(cookies))  # yt-dlp rewrites its jar: it must never get the :ro original
+            self.assertEqual(Path(cookiefile).read_text(encoding="utf-8"), cookies.read_text(encoding="utf-8"))
 
     def test_browser_cookies_are_the_fallback_when_no_file_is_set(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -25,6 +25,8 @@ export const api = {
   reprocessLink: (url: string) => request<{ ok: boolean }>("POST", "/api/links/reprocess", { url }),
   ingestLinks: (links: { url: string; note: string }[]) =>
     request<{ job: string; added: number; already_ingested: number }>("POST", "/api/ingest/links", { links }),
+  ingestLocalFiles: () =>
+    request<{ job: string }>("POST", "/api/ingest/links", { links: [], only_local: true }),
   ingestFamily: (family: string, sources: string[]) =>
     request<{ job: string }>("POST", `/api/ingest/${family}`, { sources }),
   areas: () => request<Area[]>("GET", "/api/areas"),

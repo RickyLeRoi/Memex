@@ -3,7 +3,9 @@ from __future__ import annotations
 import logging
 import os
 import re
+import shutil
 import tempfile
+import weakref
 from dataclasses import dataclass, field
 from http.cookiejar import MozillaCookieJar
 from pathlib import Path
@@ -148,6 +150,7 @@ class LinkFetcher:
         self.llm = llm
         self.http = http or httpx.Client(timeout=30, follow_redirects=True,
                                          headers={"User-Agent": UA, "Accept-Language": "it-IT,it;q=0.9,en;q=0.8"})
+        self._cookies_copy: str | None = None
 
     def _get(self, url: str) -> httpx.Response:
         r = self.http.get(url)
@@ -157,10 +160,25 @@ class LinkFetcher:
     # 20261004 ** RG #cookies_file_wins no browser profile inside a container: an explicit cookies.txt beats the browser
     def _ytdlp_cookie_opts(self) -> dict:
         if self.lc.cookies_file:
-            return {"cookiefile": os.path.expanduser(self.lc.cookies_file)}
+            return {"cookiefile": self._writable_cookies_copy()}
         if self.lc.cookies_from_browser:
             return {"cookiesfrombrowser": (self.lc.cookies_from_browser,)}
         return {}
+
+    # 20261004 ** RG #readonly_config yt-dlp saves the cookie jar on exit: give it a copy, /config is mounted :ro
+    def _writable_cookies_copy(self) -> str:
+        source = os.path.expanduser(self.lc.cookies_file)
+        if self._cookies_copy is None:
+            try:
+                handle, copy = tempfile.mkstemp(prefix="cookies-", suffix=".txt")
+                os.close(handle)
+                shutil.copyfile(source, copy)
+            except OSError as e:
+                log.info("Cookie file non copiabile (%s): uso l'originale", str(e)[:120])
+                return source
+            weakref.finalize(self, lambda path=copy: os.path.exists(path) and os.unlink(path))
+            self._cookies_copy = copy
+        return self._cookies_copy
 
     def _ytdlp_info(self, url: str) -> dict | None:
         if not self.lc.use_ytdlp:
@@ -473,12 +491,18 @@ def sync_links(cfg: Config, state: State) -> int:
 
 
 def fetch_links(cfg: Config, state: State, llm: LLM | None, http: httpx.Client | None = None,
-                store_images: bool = True) -> tuple[list[Doc], list[str]]:
-    """Return the pending links' Docs and the errors (failed links stay queued for later runs)."""
-    sync_links(cfg, state)
+                store_images: bool = True, local_only: bool = False) -> tuple[list[Doc], list[str]]:
+    """Return the pending links' Docs and the errors (failed links stay queued for later runs).
+
+    local_only: uploaded screenshots and PDFs only; links.txt is not imported and web links stay queued."""
+    # 20261005 ++ RG #local_only the files button must not drag the whole links queue along
+    if not local_only:
+        sync_links(cfg, state)
     fetcher = LinkFetcher(cfg, llm, http)
     docs, errors = [], []
     pending = state.pending_links(cfg.links.max_attempts)
+    if local_only:
+        pending = [(url, note) for url, note in pending if url.startswith((IMAGE_SCHEME, DOC_SCHEME))]
     log.info("Link da elaborare: %d", len(pending))
     for position, (url, note) in enumerate(pending, 1):
         log.info("[%d/%d] %s (tentativo %d/%d)", position, len(pending), url, state.link_attempts(url) + 1,

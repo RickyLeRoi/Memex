@@ -286,7 +286,7 @@ def make_handler(service: Service, dist_dir: Path):
                 if not sources:
                     raise ApiError(400, f"sources must be a subset of {FAMILIES[family]}")
             try:
-                job = service.start_ingest(sources)
+                job = service.start_ingest(sources, only_local=family == "links" and body.get("only_local") is True)
             except RuntimeError as e:
                 raise ApiError(409, str(e)) from None
             except ValueError as e:

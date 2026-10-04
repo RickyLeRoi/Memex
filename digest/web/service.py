@@ -498,7 +498,7 @@ class Service:
     def running_job(self) -> Job | None:
         return next((j for j in self.jobs.values() if j.status == "running"), None)
 
-    def start_ingest(self, sources: list[str]) -> Job:
+    def start_ingest(self, sources: list[str], only_local: bool = False) -> Job:
         known = {n for names in FAMILIES.values() for n in names}
         if not sources or set(sources) - known:
             raise ValueError(f"unknown sources: {sorted(set(sources) - known)}")
@@ -508,7 +508,7 @@ class Service:
             job = Job(sources)
             self.jobs[job.id] = job
         command = [sys.executable, "-m", "digest", "-c", str(self.config_path), "run",
-                   "--sources", ",".join(sources)]
+                   "--sources", ",".join(sources)] + (["--only-local"] if only_local else [])
         threading.Thread(target=self._run_job, args=(job, command), daemon=True).start()
         return job
 

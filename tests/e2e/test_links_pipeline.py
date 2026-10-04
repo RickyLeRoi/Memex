@@ -99,6 +99,27 @@ class LinksPipelineTests(unittest.TestCase):
 
         self.assertEqual(self.links_file_urls(), [f"{self.site.url}/article"])
 
+    def test_only_local_processes_uploaded_files_and_leaves_the_web_queue_alone(self):
+        self.queue("/article")
+        screenshot = "image://" + "a" * 40 + ".png"
+        with State(self.root / "data" / "state.sqlite") as state:
+            state.add_link(screenshot, "")
+            state.add_link(f"{self.site.url}/recipe", "")
+
+        result = run_digest(self.config, "run", "--sources", "links", "--only-local")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        with State(self.root / "data" / "state.sqlite") as state:
+            attempted = state.db.execute("SELECT status FROM links WHERE url=?", (screenshot,)).fetchone()[0]
+            queued = state.db.execute("SELECT status, attempts FROM links WHERE url=?",
+                                      (f"{self.site.url}/recipe",)).fetchone()
+            imported = state.link_row(f"{self.site.url}/article")
+        self.assertEqual(attempted, "error")  # the stored file does not exist, but it was the one picked up
+        self.assertEqual(queued, ("pending", 0))
+        self.assertIsNone(imported)  # links.txt was not imported
+        self.assertEqual(self.site.hits, [])
+        self.assertEqual(self.links_file_urls(), [f"{self.site.url}/article"])
+
     def test_second_run_does_not_reprocess_done_links(self):
         self.queue("/article")
         run_digest(self.config, "run", "--sources", "links")

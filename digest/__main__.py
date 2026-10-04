@@ -292,7 +292,7 @@ def _run_links(cfg: Config, state: State, llm: LLM, args, result: dict, summariz
     from .sources.links import fetch_links
 
     docs, errors = fetch_links(cfg, state, llm if not args.dry_run else None,
-                               store_images=not args.dry_run)
+                               store_images=not args.dry_run, local_only=args.only_local)
     result["stats"]["link"] = len(docs)
     result["errors"] += [f"link {e}" for e in errors]
     if args.dry_run:
@@ -361,6 +361,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--reprocess", action="store_true",
                    help="rielabora anche elementi già visti (da usare con --since)")
     r.add_argument("--dry-run", action="store_true", help="scarica e salva i testi senza chiamare il modello")
+    r.add_argument("--only-local", action="store_true",
+                   help="solo screenshot e PDF caricati: non importa links.txt e lascia in coda i link web")
     r.add_argument("--no-advance", action="store_true", help="non aggiorna cursori/visti (utile per provare prompt)")
 
     args = p.parse_args(argv)
