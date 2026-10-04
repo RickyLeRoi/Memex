@@ -64,12 +64,14 @@ export function step(nodes: Map<string, SimNode>, edges: SimEdge[], alpha: numbe
       b.vy -= fy;
     }
     const target = pull?.get(a.id);
+    // 20261004 ** RG #islands_hold the island pull must not fade with alpha, and global gravity would undo it
     if (target) {
-      a.vx += (target.x - a.x) * ISLAND_PULL * alpha;
-      a.vy += (target.y - a.y) * ISLAND_PULL * alpha;
+      a.vx += (target.x - a.x) * ISLAND_PULL;
+      a.vy += (target.y - a.y) * ISLAND_PULL;
+    } else {
+      a.vx -= a.x * GRAVITY;
+      a.vy -= a.y * GRAVITY;
     }
-    a.vx -= a.x * GRAVITY;
-    a.vy -= a.y * GRAVITY;
   }
   for (const edge of edges) {
     const a = nodes.get(edge.source);
