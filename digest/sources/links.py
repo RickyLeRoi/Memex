@@ -376,14 +376,18 @@ class LinkFetcher:
         f = Fetched(is_video=kind == "video")
 
         if kind in ("instagram", "video"):
+            log.info("  -> yt-dlp")
             info = self._ytdlp_info(url)
             if info:
                 self._from_ytdlp(f, info)
 
         # 20261003 ++ RG #instagram_carousel image-only posts have no video, yt-dlp cannot read them
+        if kind == "instagram" and not f.method:
+            log.info("  -> carosello Instagram (Chromium)")
         slides = self._instagram_slides(url) if kind == "instagram" and not f.method else []
 
         if len(f.text) < 80:
+            log.info("  -> download diretto")
             try:
                 r = self._get(url)
                 ctype = r.headers.get("content-type", "")
@@ -401,6 +405,7 @@ class LinkFetcher:
                 log.info("Download diretto fallito %s: %s", url, f.error)
 
         if len(f.text) < 200 and self.lc.use_playwright:
+            log.info("  -> rendering Chromium")
             html = self._render(url)
             if html:
                 if kind == "web":
@@ -420,6 +425,7 @@ class LinkFetcher:
         if kind in ("instagram", "threads") or (len(f.text) < 300 and f.images):
             # 20261003 ** RG #instagram_carousel describe every slide instead of the cover only
             images = list(dict.fromkeys(slides or f.images))
+            log.info("  -> analisi di %d immagini (%s)", len(images), "slide" if slides else "copertina")
             for i, d in enumerate(self._describe_images(images, MAX_CAROUSEL_SLIDES if slides else 4), 1):
                 f.text += f"\n[Immagine {i}]\n{d}\n"
                 f.method.append("vision")
@@ -441,7 +447,11 @@ def fetch_links(cfg: Config, state: State, llm: LLM | None, http: httpx.Client |
     sync_links(cfg, state)
     fetcher = LinkFetcher(cfg, llm, http)
     docs, errors = [], []
-    for url, note in state.pending_links(cfg.links.max_attempts):
+    pending = state.pending_links(cfg.links.max_attempts)
+    log.info("Link da elaborare: %d", len(pending))
+    for position, (url, note) in enumerate(pending, 1):
+        log.info("[%d/%d] %s (tentativo %d/%d)", position, len(pending), url, state.link_attempts(url) + 1,
+                 cfg.links.max_attempts)
         if url.startswith((IMAGE_SCHEME, DOC_SCHEME)):
             builder = screenshot_doc if url.startswith(IMAGE_SCHEME) else pdf_doc
             try:
@@ -461,6 +471,7 @@ def fetch_links(cfg: Config, state: State, llm: LLM | None, http: httpx.Client |
         if len(f.text.strip()) < 20:
             msg = f.error or ("contenuto non estraibile (post privato o login richiesto? "
                               "prova cookies_from_browser o use_playwright)")
+            log.info("  x scartato: %s", msg)
             state.link_failed(url, msg)
             errors.append(f"{url}: {msg}")
             continue
@@ -472,6 +483,7 @@ def fetch_links(cfg: Config, state: State, llm: LLM | None, http: httpx.Client |
         if note:
             header.append(f"Nota dell'utente: {note}")
         image = fetcher.store_cover(f) if store_images and cfg.links.fetch_images else None
+        log.info("  ok: %s, %d caratteri", "+".join(f.method) or "-", len(f.text))
         docs.append(Doc(source="link", id=url, title=f.title or url, url=url,
                         text="\n".join(header) + "\n\n" + truncate(f.text, cfg.links.max_chars),
                         meta={"note": note, "platform": classify(url), "method": f.method, "image": image,

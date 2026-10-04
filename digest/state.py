@@ -334,6 +334,10 @@ class State:
         rows = self.db.execute("SELECT url FROM links WHERE image=?", (name,)).fetchall()
         return sum(1 for (url,) in rows if url not in excluding_urls)
 
+    def link_attempts(self, url: str) -> int:
+        row = self.db.execute("SELECT attempts FROM links WHERE url=?", (url,)).fetchone()
+        return row[0] if row and row[0] else 0
+
     def link_row(self, url: str) -> dict | None:
         row = self.db.execute("SELECT url, COALESCE(title, ''), status FROM links WHERE url=?", (url,)).fetchone()
         return dict(zip(("url", "title", "status"), row)) if row else None
