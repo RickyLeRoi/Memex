@@ -192,7 +192,7 @@ class Purger:
     def __init__(self, cfg: Config, state: State):
         self.cfg = cfg
         self.state = state
-        self.reports = cfg.reports_path
+        self.reports = cfg.reports_location
         self.data = cfg.data_path
         vault = os.path.expanduser(cfg.obsidian.vault) if cfg.obsidian.vault else ""
         self.vault = Path(vault) if vault and Path(vault).is_dir() else None

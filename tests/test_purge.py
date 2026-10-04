@@ -111,6 +111,25 @@ class LinkDeletionTests(PurgeCase):
         self.delete("link", TARGET)
         self.assertTrue(self.delete("link", TARGET)["ok"])
 
+    # 20261004 ++ RG #readonly_config deleting must not need to create the reports folder
+    def test_delete_works_when_the_reports_folder_does_not_exist_and_cannot_be_created(self):
+        cfg = Config(data_dir=str(self.tmp / "data"), reports_dir=str(self.tmp / "ro" / "reports"), base_dir=self.tmp)
+        (self.tmp / "ro").mkdir()
+        state = State(cfg.data_path / "state.sqlite")
+        state.add_link(TARGET, "")
+        state.db.commit()
+        purger = Purger(cfg, state)
+        (self.tmp / "ro").chmod(0o555)
+        try:
+            result = purger.execute("link", TARGET, purger.plan("link", TARGET).token)
+            created = (self.tmp / "ro" / "reports").exists()
+        finally:
+            (self.tmp / "ro").chmod(0o755)
+            state.close()
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(created)
+
     def test_dryrun_file_removed_when_all_blocks_go(self):
         self.delete("link", SIBLING)
         self.delete("link", TARGET)

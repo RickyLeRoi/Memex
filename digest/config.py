@@ -180,11 +180,15 @@ class Config:
         p.mkdir(parents=True, exist_ok=True)
         return p
 
+    # 20261004 ** RG #readonly_config read-only callers (delete) must not create the folder: /config is mounted :ro
+    @property
+    def reports_location(self) -> Path:
+        p = Path(os.path.expanduser(self.reports_dir))
+        return p if p.is_absolute() else self.base_dir / p
+
     @property
     def reports_path(self) -> Path:
-        p = Path(os.path.expanduser(self.reports_dir))
-        if not p.is_absolute():
-            p = self.base_dir / p
+        p = self.reports_location
         p.mkdir(parents=True, exist_ok=True)
         return p
 
