@@ -1,8 +1,9 @@
 # tests/e2e/test_instagram_carousel.py
+import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import httpx
 
@@ -93,6 +94,34 @@ class CookiesFileTests(unittest.TestCase):
             cfg.links.cookies_file = str(Path(tmp) / "nope.txt")
 
             self.assertEqual(LinkFetcher(cfg, None)._browser_cookies(), [])
+
+    def test_cookies_file_wins_over_cookies_from_browser(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cookies = Path(tmp) / "cookies.txt"
+            cookies.write_text(
+                "# Netscape HTTP Cookie File\n"
+                ".instagram.com\tTRUE\t/\tTRUE\t4102444800\tsessionid\tabc123\n",
+                encoding="utf-8",
+            )
+            cfg = load_config(write_config(Path(tmp), "http://127.0.0.1:1/v1"))
+            cfg.links.cookies_file = str(cookies)
+            cfg.links.cookies_from_browser = "chrome"
+            fetcher = LinkFetcher(cfg, None)
+
+            browser_reader = MagicMock(side_effect=AssertionError("browser used"))
+            fake_yt_dlp = {"yt_dlp": MagicMock(), "yt_dlp.cookies": MagicMock(extract_cookies_from_browser=browser_reader)}
+            with patch.dict(sys.modules, fake_yt_dlp):
+                loaded = fetcher._browser_cookies()
+
+            self.assertEqual([(c["name"], c["value"]) for c in loaded], [("sessionid", "abc123")])
+            self.assertEqual(fetcher._ytdlp_cookie_opts(), {"cookiefile": str(cookies)})
+
+    def test_browser_cookies_are_the_fallback_when_no_file_is_set(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = load_config(write_config(Path(tmp), "http://127.0.0.1:1/v1"))
+            cfg.links.cookies_from_browser = "firefox"
+
+            self.assertEqual(LinkFetcher(cfg, None)._ytdlp_cookie_opts(), {"cookiesfrombrowser": ("firefox",)})
 
 
 if __name__ == "__main__":

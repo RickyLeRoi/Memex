@@ -149,6 +149,14 @@ class LinkFetcher:
         r.raise_for_status()
         return r
 
+    # 20261004 ** RG #cookies_file_wins no browser profile inside a container: an explicit cookies.txt beats the browser
+    def _ytdlp_cookie_opts(self) -> dict:
+        if self.lc.cookies_file:
+            return {"cookiefile": os.path.expanduser(self.lc.cookies_file)}
+        if self.lc.cookies_from_browser:
+            return {"cookiesfrombrowser": (self.lc.cookies_from_browser,)}
+        return {}
+
     def _ytdlp_info(self, url: str) -> dict | None:
         if not self.lc.use_ytdlp:
             return None
@@ -159,11 +167,7 @@ class LinkFetcher:
             return None
         opts = {"quiet": True, "no_warnings": True, "skip_download": True, "noplaylist": True,
                 "logger": _YtdlpLogger()}
-        if self.lc.cookies_from_browser:
-            opts["cookiesfrombrowser"] = (self.lc.cookies_from_browser,)
-        # 20261004 ++ RG #docker no browser profile inside a container: read a Netscape cookies.txt instead
-        elif self.lc.cookies_file:
-            opts["cookiefile"] = os.path.expanduser(self.lc.cookies_file)
+        opts.update(self._ytdlp_cookie_opts())
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 return ydl.extract_info(url, download=False)
@@ -183,8 +187,7 @@ class LinkFetcher:
         with tempfile.TemporaryDirectory() as tmp:
             opts = {"quiet": True, "no_warnings": True, "format": "bestaudio/best", "noplaylist": True,
                     "outtmpl": str(Path(tmp) / "audio.%(ext)s"), "logger": _YtdlpLogger()}
-            if self.lc.cookies_from_browser:
-                opts["cookiesfrombrowser"] = (self.lc.cookies_from_browser,)
+            opts.update(self._ytdlp_cookie_opts())
             try:
                 with yt_dlp.YoutubeDL(opts) as ydl:
                     ydl.download([url])
@@ -224,13 +227,12 @@ class LinkFetcher:
         if not (self.lc.cookies_from_browser or self.lc.cookies_file):
             return []
         try:
-            if self.lc.cookies_from_browser:
-                from yt_dlp.cookies import extract_cookies_from_browser
-                jar = extract_cookies_from_browser(self.lc.cookies_from_browser)
-            else:
-                # 20261004 ++ RG #docker
+            if self.lc.cookies_file:
                 jar = MozillaCookieJar(os.path.expanduser(self.lc.cookies_file))
                 jar.load(ignore_discard=True, ignore_expires=True)
+            else:
+                from yt_dlp.cookies import extract_cookies_from_browser
+                jar = extract_cookies_from_browser(self.lc.cookies_from_browser)
         except Exception as e:  # keychain denied, browser missing, unsupported profile, bad cookies file...
             log.info("Cookie non leggibili: %s", str(e)[:200])
             return []
@@ -250,6 +252,7 @@ class LinkFetcher:
             return []
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True, args=CHROMIUM_ARGS)
+            page = None
             try:
                 context = browser.new_context(user_agent=UA, locale="it-IT")
                 cookies = self._browser_cookies()
@@ -270,9 +273,20 @@ class LinkFetcher:
                 return list(slides.values())
             except Exception as e:  # login wall, timeout, layout change: fall back to the cover image
                 log.info("Carosello Instagram non letto su %s: %s", url, str(e).splitlines()[0][:200])
+                # 20261004 ++ RG #instagram_debug tell a login wall from a layout change
+                self._dump_instagram_debug(page)
                 return []
             finally:
                 browser.close()
+
+    def _dump_instagram_debug(self, page) -> None:
+        if page is None:
+            return
+        try:
+            log.info("Instagram debug: url=%s title=%r", page.url, page.title())
+            page.screenshot(path=str(self.cfg.data_path / "instagram_debug.png"))
+        except Exception as e:
+            log.info("Instagram debug non disponibile: %s", str(e)[:120])
 
     def _describe_images(self, urls: list[str], limit: int = 4) -> list[str]:
         if not (self.llm and self.cfg.llm.vision_model):
