@@ -3,7 +3,7 @@ services:
     build:
       context: .
       args:
-        EXTRAS: "social,pdf"
+        EXTRAS: "social,pdf,render"
     image: memex:latest
     restart: unless-stopped
     ports:
@@ -29,12 +29,15 @@ services:
     volumes:
       - ./config:/config:ro
       - digest-data:/data
+      # Instagram login (Netscape cookies.txt exported from your browser), see README:
+      # - ./config/cookies.txt:/config/cookies.txt:ro
       # Obsidian vault (set [obsidian] vault = "/vault" in the config):
       # - /path/to/YourVault:/vault
       # - ./certs:/certs:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     read_only: true
+    shm_size: "1gb"  # Chromium crashes on heavy pages with the default 64 MB
     tmpfs:
       - /tmp
     cap_drop:

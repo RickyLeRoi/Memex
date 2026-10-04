@@ -129,6 +129,7 @@ class LinksConfig:
     file: str = "links.txt"
     use_ytdlp: bool = True
     cookies_from_browser: str = ""
+    cookies_file: str = ""
     use_playwright: bool = False
     transcribe: bool = False
     whisper_model: str = "small"

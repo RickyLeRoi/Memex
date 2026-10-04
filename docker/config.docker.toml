@@ -23,6 +23,8 @@ focus = ""
 [links]
 enabled = true
 file = "/data/links.txt"          # the GUI appends here, so it must live on the writable volume
+use_playwright = true             # Chromium is baked into the image: reads Instagram carousels and JS pages
+# cookies_file = "/config/cookies.txt"   # Instagram posts that ask for a login (mount the file, see README)
 
 [server]
 # Extra Host names the GUI answers to (besides localhost), e.g. when published on the LAN:

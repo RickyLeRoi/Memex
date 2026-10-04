@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import tempfile
 from dataclasses import dataclass, field
+from http.cookiejar import MozillaCookieJar
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -31,6 +33,8 @@ IMAGE_PROMPT = ("Descrivi brevemente questa immagine di un post social e trascri
 # 20261003 ++ RG #instagram_carousel
 MAX_CAROUSEL_SLIDES = 20
 INSTAGRAM_NEXT_SELECTOR = 'button[aria-label="Next"], button[aria-label="Avanti"]'
+# 20261004 ++ RG #docker the container drops every capability, so Chromium cannot build its own sandbox
+CHROMIUM_ARGS = ["--no-sandbox", "--disable-dev-shm-usage"]
 INSTAGRAM_SLIDES_JS = """() => [...document.querySelectorAll('article img')]
     .filter(img => img.naturalWidth >= 320).map(img => img.currentSrc || img.src)"""
 
@@ -157,6 +161,9 @@ class LinkFetcher:
                 "logger": _YtdlpLogger()}
         if self.lc.cookies_from_browser:
             opts["cookiesfrombrowser"] = (self.lc.cookies_from_browser,)
+        # 20261004 ++ RG #docker no browser profile inside a container: read a Netscape cookies.txt instead
+        elif self.lc.cookies_file:
+            opts["cookiefile"] = os.path.expanduser(self.lc.cookies_file)
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 return ydl.extract_info(url, download=False)
@@ -200,7 +207,7 @@ class LinkFetcher:
             log.warning("use_playwright attivo ma playwright non installato (pip install '.[render]')")
             return None
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(headless=True, args=CHROMIUM_ARGS)
             try:
                 page = browser.new_page(user_agent=UA, locale="it-IT")
                 page.goto(url, wait_until="domcontentloaded", timeout=45000)
@@ -214,13 +221,18 @@ class LinkFetcher:
 
     # 20261003 ++ RG #instagram_carousel
     def _browser_cookies(self) -> list[dict]:
-        if not self.lc.cookies_from_browser:
+        if not (self.lc.cookies_from_browser or self.lc.cookies_file):
             return []
         try:
-            from yt_dlp.cookies import extract_cookies_from_browser
-            jar = extract_cookies_from_browser(self.lc.cookies_from_browser)
-        except Exception as e:  # keychain denied, browser missing, unsupported profile...
-            log.info("Cookie del browser non leggibili: %s", str(e)[:200])
+            if self.lc.cookies_from_browser:
+                from yt_dlp.cookies import extract_cookies_from_browser
+                jar = extract_cookies_from_browser(self.lc.cookies_from_browser)
+            else:
+                # 20261004 ++ RG #docker
+                jar = MozillaCookieJar(os.path.expanduser(self.lc.cookies_file))
+                jar.load(ignore_discard=True, ignore_expires=True)
+        except Exception as e:  # keychain denied, browser missing, unsupported profile, bad cookies file...
+            log.info("Cookie non leggibili: %s", str(e)[:200])
             return []
         return [{"name": c.name, "value": c.value, "domain": c.domain, "path": c.path, "secure": bool(c.secure),
                  "expires": c.expires if c.expires else -1}
@@ -237,7 +249,7 @@ class LinkFetcher:
             log.warning("use_playwright attivo ma playwright non installato (pip install '.[render]')")
             return []
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(headless=True, args=CHROMIUM_ARGS)
             try:
                 context = browser.new_context(user_agent=UA, locale="it-IT")
                 cookies = self._browser_cookies()

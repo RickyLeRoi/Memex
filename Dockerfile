@@ -9,8 +9,8 @@ RUN npm run build
 
 FROM python:3.12-slim AS runtime
 
-# Chromium (render) and faster-whisper (transcribe) are left out on purpose: too large. EXTRAS=pdf drops yt-dlp.
-ARG EXTRAS=social,pdf
+# faster-whisper (transcribe) is left out on purpose: too large. EXTRAS=pdf drops yt-dlp, "render" adds Chromium (~400 MB).
+ARG EXTRAS=social,pdf,render
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -19,12 +19,16 @@ ENV PYTHONUNBUFFERED=1 \
     HOME=/data \
     XDG_CACHE_HOME=/data/.cache \
     DIGEST_FRONTEND_DIST=/app/frontend/dist \
-    DIGEST_CONFIG=/config/config.toml
+    DIGEST_CONFIG=/config/config.toml \
+    PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
 
 WORKDIR /app
 COPY pyproject.toml ./
 COPY digest/ digest/
 RUN pip install ".[${EXTRAS}]"
+# Chromium + its system libraries, installed as root at build time: the runtime filesystem is read-only.
+RUN case ",${EXTRAS}," in *,render,*|*,all,*) playwright install --with-deps chromium \
+        && chmod -R a+rX /opt/ms-playwright && rm -rf /var/lib/apt/lists/* ;; esac
 
 COPY --from=frontend /build/frontend/dist frontend/dist
 COPY docker/entrypoint.sh /app/docker/entrypoint.sh

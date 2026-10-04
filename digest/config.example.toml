@@ -86,6 +86,7 @@ enabled = true
 file = "links.txt"
 use_ytdlp = true                  # Instagram, YouTube, TikTok... (pip install '.[social]')
 cookies_from_browser = ""         # "firefox" / "chrome" se Instagram chiede il login
+cookies_file = ""                 # alternativa (es. Docker): cookies.txt in formato Netscape esportato dal browser
 use_playwright = false            # rendering con browser headless per pagine JS (pip install '.[render]')
 transcribe = false                # trascrive reel/video con faster-whisper (pip install '.[transcribe]')
 whisper_model = "small"
