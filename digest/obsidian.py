@@ -128,8 +128,9 @@ def export_links_to_vault(cfg: Config, state, excluded_areas: set[str] | frozens
     if not vault.is_dir():
         raise ValueError(f"il vault non esiste: {vault}")
     links_dir = vault / oc.links_folder
-    noted = {m.group(1) for path in links_dir.glob("*.md")
-             if (m := re.search(r"^url: (.+)$", path.read_text(encoding="utf-8")[:2000], re.M))} if links_dir.is_dir() else set()
+    # 20261020 ** RG #appledouble skip ._*.md sidecar files macOS leaves on SMB shares
+    noted = {m.group(1) for path in links_dir.glob("*.md") if not path.name.startswith(".")
+             if (m :=re.search(r"^url: (.+)$", path.read_text(encoding="utf-8")[:2000], re.M))} if links_dir.is_dir() else set()
     written, skipped_existing, skipped_area = 0, 0, 0
     rows = state.db.execute(
         "SELECT url, analysis, processed_at FROM links WHERE status='done' AND analysis IS NOT NULL ORDER BY processed_at"

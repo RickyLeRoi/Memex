@@ -54,7 +54,8 @@ export function step(nodes: Map<string, SimNode>, edges: SimEdge[], alpha: numbe
         dy = Math.random() - 0.5;
         d2 = dx * dx + dy * dy + 0.01;
       }
-      const force = (REPULSION * alpha) / d2;
+      // 20261020 ** RG #graph_collapse repulsion faded with alpha while springs and gravity did not: settled nodes piled up
+      const force = (REPULSION * (1 + alpha)) / d2;
       const dist = Math.sqrt(d2);
       const fx = (dx / dist) * force;
       const fy = (dy / dist) * force;
