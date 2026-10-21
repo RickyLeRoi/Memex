@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "memex"
 version = "0.1.0"
-description = "Digest di Teams, Outlook, Notion e link salvati con un LLM locale"
+description = "Digest di Teams, Outlook, Confluence, SharePoint e link salvati con un LLM locale"
 requires-python = ">=3.11"
 license = { file = "LICENSE.md" }
 authors = [{ name = "Riccardo Giordano (RickyLeRoi)" }]

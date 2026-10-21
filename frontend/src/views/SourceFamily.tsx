@@ -9,6 +9,10 @@ const COPY: Record<Family, { title: string; hint: string }> = {
   chat: { title: "Chat", hint: "Teams e Slack: legge i messaggi nuovi dall'ultimo import." },
   mail: { title: "Email", hint: "Outlook e Gmail: legge le cartelle configurate, escludendo i mittenti automatici." },
   tickets: { title: "Ticket", hint: "Jira e canali Slack dedicati ai ticket." },
+  docs: {
+    title: "Documentazione",
+    hint: "Confluence: le pagine modificate dall'ultimo import. SharePoint: i file elencati in sharepoint.txt, riletti solo se cambiati.",
+  },
 };
 
 export function SourceFamily({ family }: { family: Family }) {

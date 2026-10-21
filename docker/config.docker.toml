@@ -36,14 +36,17 @@ use_playwright = true             # Chromium is baked into the image: reads Inst
 enabled = false
 [teams]
 enabled = false
-[notion]
-enabled = false
 [slack]
 enabled = false
 [gmail]
 enabled = false
 [jira]
 enabled = false
+[confluence]
+enabled = false
+[sharepoint]
+enabled = false
+file = "/data/sharepoint.txt"      # one SharePoint/OneDrive link per line
 
 [obsidian]
 enabled = false

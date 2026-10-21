@@ -28,6 +28,8 @@ def graph_scopes(cfg: Config) -> list[str]:
     scopes = ["User.Read"]
     if cfg.mail.enabled:
         scopes.append("Mail.Read")
+    if cfg.sharepoint.enabled:
+        scopes += ["Files.Read.All", "Sites.Read.All"]
     if cfg.teams.enabled:
         scopes.append("Chat.Read")
         if cfg.teams.channels:
@@ -87,7 +89,7 @@ class GraphClient:
         self.token = token_provider
         self.base = base
 
-    def get(self, url: str, params: dict | None = None, headers: dict | None = None) -> dict:
+    def _request(self, url: str, params: dict | None, headers: dict | None) -> httpx.Response:
         if not url.startswith("http"):
             url = self.base + url
         for attempt in range(6):
@@ -101,8 +103,20 @@ class GraphClient:
                 continue
             if r.status_code >= 400:
                 raise GraphError(f"Graph {r.status_code} su {url}: {r.text[:300]}")
-            return r.json()
+            return r
         raise GraphError(f"Troppi retry su {url}")
+
+    def get(self, url: str, params: dict | None = None, headers: dict | None = None) -> dict:
+        return self._request(url, params, headers).json()
+
+    # 20261020 ++ RG #sharepoint file content answers with a redirect to a pre-signed URL: it must not receive our token
+    def get_bytes(self, url: str) -> bytes:
+        r = self._request(url, None, None)
+        if r.is_redirect:
+            r = self.http.get(r.headers["Location"])
+            if r.status_code >= 400:
+                raise GraphError(f"Download {r.status_code}: {r.text[:300]}")
+        return r.content
 
     def paged(self, url: str, params: dict | None = None, headers: dict | None = None,
               limit: int | None = None) -> Iterator[dict]:

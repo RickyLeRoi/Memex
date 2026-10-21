@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 KINDS = ("task", "deadline", "decision", "question", "info", "idea")
 PRIORITIES = ("alta", "media", "bassa")
 
-ITEMS_SYSTEM = """Estrai informazioni operative da comunicazioni di lavoro (mail, chat Teams, pagine Notion).
+ITEMS_SYSTEM = """Estrai informazioni operative da comunicazioni di lavoro (mail, chat Teams, ticket, pagine di documentazione).
 {me_line}{focus_line}Oggi è {today}.
 
 Rispondi SOLO con un oggetto JSON in questo formato:

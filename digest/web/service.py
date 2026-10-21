@@ -23,14 +23,16 @@ from ..tags import GENERIC_TAGS, ORIGIN_AUTO, ORIGIN_MANUAL, ORIGIN_MODEL, Vocab
 from ..util import iso_z, utcnow
 
 FAMILIES: dict[str, list[str]] = {
-    "links": ["links", "notion"],
+    "links": ["links"],
     "chat": ["teams", "slack"],
     "mail": ["mail", "gmail"],
     "tickets": ["jira", "slack_tickets"],
+    "docs": ["confluence", "sharepoint"],
 }
 SOURCE_LABELS = {
-    "links": "Link salvati", "notion": "Notion", "teams": "Microsoft Teams", "slack": "Slack",
+    "links": "Link salvati", "teams": "Microsoft Teams", "slack": "Slack",
     "mail": "Outlook", "gmail": "Gmail", "jira": "Jira", "slack_tickets": "Slack (ticket)",
+    "confluence": "Confluence", "sharepoint": "SharePoint",
 }
 MAX_ITEM_NODES = 300
 MAX_AREA_NAME = 40
@@ -96,9 +98,9 @@ class Service:
         graph_ready = bool(self.cfg.graph.client_id)
         checks = {
             "links": lambda: True,
-            "notion": lambda: bool(self.cfg.notion.token),
             "teams": lambda: graph_ready,
             "mail": lambda: graph_ready,
+            "sharepoint": lambda: graph_ready,
         }
         if name in checks:
             return checks[name]()

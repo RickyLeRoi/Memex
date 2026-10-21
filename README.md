@@ -1,10 +1,10 @@
 # Memex
 
-Legge **chat Teams**, **mail Outlook**, **pagine Notion** e **link salvati** (web, Instagram, Threads, video) e ne estrae task, scadenze, decisioni, domande aperte e info utili.
+Legge **chat Teams**, **mail Outlook**, **pagine Confluence**, **file SharePoint** e **link salvati** (web, Instagram, Threads, video) e ne estrae task, scadenze, decisioni, domande aperte e info utili.
 L'analisi la fa un **LLM che gira in locale**, su qualsiasi endpoint compatibile OpenAI (Ollama, LM Studio, llama.cpp, vLLM).
 Il risultato è un report Markdown/JSON e, se vuoi, una nota nel tuo vault **Obsidian**.
 
-Cosa esce dalla tua macchina: solo le chiamate alle API di Microsoft Graph e Notion (servono per leggere i tuoi dati) e il download dei link che salvi tu. I contenuti non vanno a nessun LLM in cloud.
+Cosa esce dalla tua macchina: solo le chiamate alle API di Microsoft Graph e Atlassian (servono per leggere i tuoi dati) e il download dei link che salvi tu. I contenuti non vanno a nessun LLM in cloud.
 
 ## Installazione
 
@@ -12,7 +12,7 @@ Serve Python 3.11 o superiore.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
-pip install -e .                 # base: web, Teams, Outlook, Notion
+pip install -e .                 # base: web, Teams, Outlook, Confluence, SharePoint
 pip install -e '.[social]'       # + Instagram/YouTube/TikTok via yt-dlp (consigliato)
 pip install -e '.[pdf]'          # + testo dai PDF linkati
 pip install -e '.[render]' && playwright install chromium   # + pagine che vogliono JavaScript
@@ -56,13 +56,11 @@ Note:
 - Le chat Teams **personali** (account Microsoft consumer) non sono esposte da Graph. Funziona solo con account di lavoro o scuola.
 - Se il refresh token scade (tipicamente dopo 90 giorni di inattività o per policy aziendali), i run schedulati si fermano con un messaggio chiaro. Rilanci `login` e riparti.
 
-## 3. Notion
+## 3. Confluence e SharePoint
 
-1. Su [notion.so/profile/integrations](https://www.notion.so/profile/integrations) crea una *internal integration* in sola lettura e copia il token.
-2. Esportalo come `NOTION_TOKEN=secret_...`, oppure mettilo in `[notion] token`.
-3. **Condividi con l'integrazione** le pagine o i database da leggere: menu `•••` → *Connections* → la tua integrazione. Le sottopagine ereditano l'accesso.
+**Confluence Cloud**: stesso account Atlassian di Jira. Se `[confluence]` non ha `base_url`, `email` e `api_token`, usa quelli di `[jira]` (o `JIRA_*`). Altrimenti `CONFLUENCE_BASE_URL`, `CONFLUENCE_EMAIL`, `CONFLUENCE_API_TOKEN`. Con `spaces` limiti gli spazi, con `cql` aggiungi una clausola. Le pagine modificate dall'ultimo run vengono rilette, quelle con contenuto identico saltate.
 
-Il tool prende le pagine modificate dall'ultimo run e salta quelle dove sono cambiati solo i metadati e non il contenuto.
+**SharePoint**: nessuna scansione dei siti. Metti i link ai file (SharePoint o OneDrive, uno per riga, nota facoltativa dopo l'URL) in `sharepoint.txt` (in Docker `/data/sharepoint.txt`). Si legge con lo stesso login Microsoft di Outlook, ma servono due scope in più (`Files.Read.All`, `Sites.Read.All`): dopo aver abilitato `[sharepoint]` rilancia `login`. Formati: pdf, docx, pptx, xlsx, txt, md, csv. Il file viene riletto solo se cambia (eTag). Le pagine `.aspx` non sono supportate e i PDF scansionati no: nessun modello di visione in questo percorso. I link restano nel file: è una lista di controllo, non una coda.
 
 ## 4. Link salvati
 
@@ -109,7 +107,7 @@ cd frontend && npm install && npm run build && cd ..   # una volta
 python -m digest serve                                  # http://127.0.0.1:8765
 ```
 
-Solo `127.0.0.1`: i dati restano sulla macchina. Sezioni: **Dashboard** (documenti importati, quando, grafo dei documenti), **Link** (incolli gli URL, uno per riga, con titolo o descrizione facoltativi dopo l'URL), **Chat** (Teams, Slack), **Email** (Outlook, Gmail), **Ticket** (Jira, canali Slack di supporto). Ogni "Ingerisci" lancia `digest run --sources ...` e mostra il log in diretta.
+Solo `127.0.0.1`: i dati restano sulla macchina. Sezioni: **Dashboard** (documenti importati, quando, grafo dei documenti), **Link** (incolli gli URL, uno per riga, con titolo o descrizione facoltativi dopo l'URL), **Chat** (Teams, Slack), **Email** (Outlook, Gmail), **Ticket** (Jira, canali Slack di supporto), **Documentazione** (Confluence, SharePoint). Ogni "Ingerisci" lancia `digest run --sources ...` e mostra il log in diretta.
 
 **Grafo.** I documenti sono collegati solo da tag che scegli tu nel pannello "Tag di collegamento": i tag liberi del modello (`#ricette`) restano etichette e non creano archi. Opzionali: collegamento per stesso dominio. Gli elementi estratti si attaccano al documento di origine.
 
@@ -163,7 +161,7 @@ Le aree sono macroargomenti scelti da te (di partenza: Ricette, Software, Posti,
 
 ## Tag
 
-Ogni informazione ha almeno un tag (link, mail, chat, ticket, Notion). I tag servono anche al modello locale: a ogni estrazione gli vengono passati i tag già in uso (prima quelli di collegamento che hai scelto, poi i più usati, al massimo ~150) con l'istruzione di riusare quello esistente se è semanticamente adatto. Un tag nomina un argomento, strumento o progetto citato nel testo, quindi `#onfeather-free` può marcare sia il progetto OnFeather sia i progetti che lo usano.
+Ogni informazione ha almeno un tag (link, mail, chat, ticket, documentazione). I tag servono anche al modello locale: a ogni estrazione gli vengono passati i tag già in uso (prima quelli di collegamento che hai scelto, poi i più usati, al massimo ~150) con l'istruzione di riusare quello esistente se è semanticamente adatto. Un tag nomina un argomento, strumento o progetto citato nel testo, quindi `#onfeather-free` può marcare sia il progetto OnFeather sia i progetti che lo usano.
 
 Dopo la risposta del modello, senza nuove chiamate, le varianti vengono riportate al tag esistente (maiuscole, accenti, singolare/plurale: `ricetta` → `ricette`). Se il modello non dà tag utilizzabili, vengono messi due tag automatici (sorgente e tipo, per i link `link` e il dominio): nella GUI hanno il bordo tratteggiato e non entrano mai nel vocabolario del modello. Nella GUI puoi aggiungere e togliere tag a mano (non si può togliere l'ultimo); quelli manuali non vengono sovrascritti se rielabori un link.
 
@@ -207,9 +205,9 @@ docker compose up -d --build                         # GUI + API su http://127.0
 - **Dati**: stato, immagini, documenti, report, cache del token Microsoft e `links.txt` stanno nel volume `digest-data` (`/data`): è l'unica cosa da salvare. La configurazione è in `./config/config.toml`, montata in sola lettura.
 - **LLM**: dentro il container `localhost` è il container stesso. Usa `http://host.docker.internal:11434/v1` (Ollama sull'host) oppure l'indirizzo del tuo server Ollama in LAN, in `[llm] base_url`.
 - **Accesso**: la porta è pubblicata **solo su loopback** (`127.0.0.1:8765`): la GUI legge mail e chat e può cancellare dati. Per usarla da un'altra macchina pubblica la porta sull'indirizzo LAN **e** imposta `DIGEST_GUI_TOKEN` (HTTP Basic: qualsiasi utente, il token come password) e `DIGEST_ALLOWED_HOSTS` con l'indirizzo con cui la raggiungi. Il server **rifiuta di partire** su un'interfaccia non loopback senza token (la compose lo consente solo perché pubblica su loopback: `DIGEST_ALLOW_UNAUTHENTICATED=1`). Il token viaggia in chiaro su HTTP: fuori dalla LAN metti un reverse proxy con TLS davanti.
-- **Segreti**: `SLACK_TOKEN`, `GMAIL_APP_PASSWORD`, `JIRA_API_TOKEN`, `NOTION_TOKEN`... nel file `.env` (la compose li passa al container). Nel `config.toml` basta abilitare la sezione.
+- **Segreti**: `SLACK_TOKEN`, `GMAIL_APP_PASSWORD`, `JIRA_API_TOKEN`, `CONFLUENCE_API_TOKEN`... nel file `.env` (la compose li passa al container). Nel `config.toml` basta abilitare la sezione.
 - **Instagram con login**: nel container non ci sono browser, quindi `cookies_from_browser` non serve. Esporta i cookie di instagram.com in `config/cookies.txt` (formato Netscape, es. con l'estensione «Get cookies.txt LOCALLY»), decommenta il volume `./config/cookies.txt:/config/cookies.txt:ro` in `docker-compose.yml` e imposta `cookies_file = "/config/cookies.txt"` in `[links]`. Il file è una sessione: non committarlo (`config/` è già in `.gitignore`) e preferisci un account secondario.
-- **Login Microsoft** (Teams, Outlook), una volta sola: `docker compose run --rm digest login`.
+- **Login Microsoft** (Teams, Outlook, SharePoint), una volta sola: `docker compose run --rm digest login`.
 - **Run periodici**: `docker compose run --rm digest run` dal cron dell'host (come nella sezione sotto). Non farlo partire mentre c'è un ingest avviato dalla GUI: il blocco "un solo job alla volta" vale solo dentro la GUI.
 - **Obsidian**: monta il vault (`- /percorso/Vault:/vault` in `docker-compose.yml`) e imposta `[obsidian] vault = "/vault"`.
 - **Rete con TLS intercettato** (proxy aziendale): monta il certificato e decommenta `SSL_CERT_FILE` nella compose, altrimenti i siti falliscono con `CERTIFICATE_VERIFY_FAILED`.
@@ -258,7 +256,9 @@ digest/
   web/             server HTTP locale + servizio (statistiche, grafo, job)
   sources/
     msgraph.py     Outlook + Teams (MSAL device code)
-    notion.py      API Notion
+    confluence.py  pagine Confluence Cloud
+    sharepoint.py  file SharePoint/OneDrive (Graph)
+    office.py      testo da docx/pptx/xlsx
     slack.py       canali e DM Slack (chat e ticket)
     gmail.py       Gmail via IMAP (sola lettura)
     jira.py        ticket Jira Cloud

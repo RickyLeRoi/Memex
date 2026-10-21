@@ -11,7 +11,7 @@ from digest.state import State
 from digest.tags import Vocabulary, canonical, tag_rules
 from tests.test_web import make_service
 
-SOURCES = ("mail", "teams", "slack", "slack_tickets", "gmail", "jira", "notion")
+SOURCES = ("mail", "teams", "slack", "slack_tickets", "gmail", "jira", "confluence", "sharepoint")
 
 
 class FakeLLM:

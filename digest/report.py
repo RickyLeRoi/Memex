@@ -5,8 +5,9 @@ from datetime import datetime
 from pathlib import Path
 
 PRIO_ORDER = {"alta": 0, "media": 1, "bassa": 2}
-SOURCE_LABEL = {"mail": "mail", "teams": "Teams", "notion": "Notion", "link": "link", "?": "?",
-                "slack": "Slack", "slack_tickets": "Slack (ticket)", "gmail": "Gmail", "jira": "Jira"}
+SOURCE_LABEL = {"mail": "mail", "teams": "Teams", "link": "link", "?": "?",
+                "slack": "Slack", "slack_tickets": "Slack (ticket)", "gmail": "Gmail", "jira": "Jira",
+                "confluence": "Confluence", "sharepoint": "SharePoint"}
 
 
 INTERNAL_SCHEMES = ("image://", "file://")  # 20261002 ++ RG #screenshots #documents references to local uploads

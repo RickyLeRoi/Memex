@@ -12,6 +12,7 @@ const TABS = [
   { id: "chat", label: "Chat", icon: "M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-5.4A8 8 0 1 1 21 12z" },
   { id: "mail", label: "Email", icon: "M3 5h18v14H3zM3 6l9 7 9-7" },
   { id: "tickets", label: "Ticket", icon: "M3 8a2 2 0 0 0 0 4v0a2 2 0 0 1 0 4v2h18v-2a2 2 0 0 1 0-4 2 2 0 0 0 0-4V6H3zM14 6v12" },
+  { id: "docs", label: "Documentazione", icon: "M6 2h9l5 5v15H6zM14 2v6h6M9 13h8M9 17h8" },
 ] as const;
 
 const THEME_LABEL: Record<ThemeMode, string> = { auto: "Auto", light: "Chiaro", dark: "Scuro" };
@@ -77,7 +78,7 @@ export function App() {
         {tab === "dashboard" && <Dashboard />}
         {tab === "links" && <Links />}
         {tab === "areas" && <Areas />}
-        {(tab === "chat" || tab === "mail" || tab === "tickets") && <SourceFamily key={tab} family={tab} />}
+        {(tab === "chat" || tab === "mail" || tab === "tickets" || tab === "docs") && <SourceFamily key={tab} family={tab} />}
       </main>
     </div>
   );

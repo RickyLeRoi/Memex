@@ -46,13 +46,6 @@ channels = false                  # canali dei team: richiede consenso admin (Ch
 channel_allowlist = []            # es. ["Progetto X/Generale"]; vuoto = tutti
 max_messages_per_channel = 100
 
-[notion]
-enabled = false
-token = ""                        # meglio env NOTION_TOKEN
-max_pages = 50
-max_depth = 2
-max_page_chars = 15000
-
 [slack]
 enabled = false
 token = ""                        # meglio env SLACK_TOKEN. Scope: *:history, *:read (channels, groups, im, mpim) e users:read
@@ -80,6 +73,23 @@ projects = []                     # chiavi progetto; vuoto = tutto ciò che vedi
 jql = ""                          # clausola extra, es. "assignee = currentUser()"
 max_issues = 100
 max_comments = 15
+
+[confluence]                      # Cloud. Vuoti base_url/email/api_token = si usano quelli di [jira]
+enabled = false
+base_url = ""                     # https://tuaazienda.atlassian.net, o env CONFLUENCE_BASE_URL
+email = ""                        # o env CONFLUENCE_EMAIL
+api_token = ""                    # meglio env CONFLUENCE_API_TOKEN
+spaces = []                       # chiavi spazio; vuoto = tutto ciò che vedi
+cql = ""                          # clausola extra, es. 'label = "team"'
+max_pages = 100
+max_page_chars = 15000
+
+[sharepoint]                      # richiede [graph] e un nuovo `login` (scope Files.Read.All, Sites.Read.All)
+enabled = false
+file = "sharepoint.txt"           # un link SharePoint/OneDrive per riga, nota facoltativa dopo l'URL
+max_files = 50
+max_file_bytes = 30000000
+max_chars = 15000
 
 [links]
 enabled = true

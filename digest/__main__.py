@@ -18,7 +18,7 @@ from .tags import Vocabulary
 from .util import default_since, parse_iso
 
 log = logging.getLogger("digest")
-ALL_SOURCES = ("mail", "teams", "notion", "links", "slack", "slack_tickets", "gmail", "jira")
+ALL_SOURCES = ("mail", "teams", "links", "slack", "slack_tickets", "gmail", "jira", "confluence", "sharepoint")
 HERE = Path(__file__).resolve().parent
 
 
@@ -50,8 +50,8 @@ def cmd_init(args) -> int:
 def cmd_login(cfg: Config, args) -> int:
     from .sources.msgraph import GraphAuth, GraphClient
 
-    if not (cfg.mail.enabled or cfg.teams.enabled):
-        print("Né [mail] né [teams] sono abilitati: niente login da fare.")
+    if not (cfg.mail.enabled or cfg.teams.enabled or cfg.sharepoint.enabled):
+        print("Né [mail] né [teams] né [sharepoint] sono abilitati: niente login da fare.")
         return 0
     auth = GraphAuth(cfg)
     auth.token(interactive=True)
@@ -249,16 +249,14 @@ def cmd_serve(cfg: Config, args) -> int:
 
 
 def _fetch(src: str, cfg: Config, state: State, since, holder: dict) -> FetchResult:
-    if src in ("mail", "teams"):
+    if src in ("mail", "teams", "sharepoint"):
         from .sources.msgraph import GraphAuth, GraphClient, fetch_mail, fetch_teams
+        from .sources.sharepoint import fetch_sharepoint
 
         if holder["g"] is None:
             holder["g"] = GraphClient(GraphAuth(cfg).token)
-        return (fetch_mail if src == "mail" else fetch_teams)(holder["g"], cfg, state, since)
-    if src == "notion":
-        from .sources.notion import NotionClient, fetch_notion
-
-        return fetch_notion(NotionClient(cfg.notion.token), cfg, state, since)
+        fetchers = {"mail": fetch_mail, "teams": fetch_teams, "sharepoint": fetch_sharepoint}
+        return fetchers[src](holder["g"], cfg, state, since)
     if src in ("slack", "slack_tickets"):
         import httpx
 
@@ -269,6 +267,11 @@ def _fetch(src: str, cfg: Config, state: State, since, holder: dict) -> FetchRes
         from .sources.gmail import fetch_gmail
 
         return fetch_gmail(cfg, state, since)
+    if src == "confluence":
+        from .sources.confluence import ConfluenceClient, fetch_confluence
+
+        cc = cfg.confluence
+        return fetch_confluence(ConfluenceClient(cc.base_url, cc.email, cc.api_token), cfg, state, since)
     if src == "jira":
         from .sources.jira import JiraClient, fetch_jira
 
@@ -334,7 +337,7 @@ def _dump(cfg: Config, src: str, docs: list[Doc], started: datetime) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="digest", description="Digest locale di Teams, Outlook, Notion e link salvati.")
+    p = argparse.ArgumentParser(prog="digest", description="Digest locale di Teams, Outlook, Confluence, SharePoint e link salvati.")
     p.add_argument("-c", "--config", default="config.toml", help="percorso config (default: ./config.toml)")
     p.add_argument("-v", "--verbose", action="store_true")
     p.add_argument("--version", action="version", version=__version__)

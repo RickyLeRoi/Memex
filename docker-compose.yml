@@ -21,7 +21,9 @@ services:
       JIRA_BASE_URL: "${JIRA_BASE_URL:-}"
       JIRA_EMAIL: "${JIRA_EMAIL:-}"
       JIRA_API_TOKEN: "${JIRA_API_TOKEN:-}"
-      NOTION_TOKEN: "${NOTION_TOKEN:-}"
+      CONFLUENCE_BASE_URL: "${CONFLUENCE_BASE_URL:-}"
+      CONFLUENCE_EMAIL: "${CONFLUENCE_EMAIL:-}"
+      CONFLUENCE_API_TOKEN: "${CONFLUENCE_API_TOKEN:-}"
       DIGEST_GRAPH_CLIENT_ID: "${DIGEST_GRAPH_CLIENT_ID:-}"
       DIGEST_GRAPH_TENANT: "${DIGEST_GRAPH_TENANT:-}"
       # Behind a proxy that re-signs TLS (corporate networks): mount the CA and uncomment.

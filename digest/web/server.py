@@ -23,7 +23,7 @@ DIST_DIR = Path(os.environ.get("DIGEST_FRONTEND_DIST") or Path(__file__).resolve
 LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
 JOB_PATH = re.compile(r"^/api/jobs/([0-9a-f]{12})$")
 JOB_CANCEL_PATH = re.compile(r"^/api/jobs/([0-9a-f]{12})/cancel$")  # 20261003 ++ RG #cancel_ingest
-INGEST_PATH = re.compile(r"^/api/ingest/(links|chat|mail|tickets)$")
+INGEST_PATH = re.compile(r"^/api/ingest/(links|chat|mail|tickets|docs)$")
 AREA_PATH = re.compile(r"^/api/areas/([a-z0-9-]{1,40})(?:/(approve|reject|vault-purge))?$")
 NOT_AN_AREA_ROUTE = object()
 

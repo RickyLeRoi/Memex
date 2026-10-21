@@ -1,4 +1,4 @@
-export type Family = "chat" | "mail" | "tickets";
+export type Family = "chat" | "mail" | "tickets" | "docs";
 
 export interface DayStat {
   date: string;

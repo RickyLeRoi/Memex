@@ -62,15 +62,6 @@ class TeamsConfig:
 
 
 @dataclass
-class NotionConfig:
-    enabled: bool = False
-    token: str = ""
-    max_pages: int = 50
-    max_depth: int = 2
-    max_page_chars: int = 15000
-
-
-@dataclass
 class SlackConfig:
     enabled: bool = False
     token: str = ""  # xoxp-... (user token) or xoxb-... (bot token, must be invited to the channels)
@@ -115,6 +106,30 @@ class JiraConfig:
 
     def is_configured(self) -> bool:
         return bool(self.base_url and self.email and self.api_token)
+
+
+@dataclass
+class ConfluenceConfig:
+    enabled: bool = False
+    base_url: str = ""
+    email: str = ""
+    api_token: str = ""
+    spaces: list[str] = field(default_factory=list)
+    cql: str = ""
+    max_pages: int = 100
+    max_page_chars: int = 15000
+
+    def is_configured(self) -> bool:
+        return bool(self.base_url and self.email and self.api_token)
+
+
+@dataclass
+class SharepointConfig:
+    enabled: bool = False
+    file: str = "sharepoint.txt"
+    max_files: int = 50
+    max_file_bytes: int = 30_000_000
+    max_chars: int = 15000
 
 
 @dataclass
@@ -163,10 +178,11 @@ class Config:
     graph: GraphConfig = field(default_factory=GraphConfig)
     mail: MailConfig = field(default_factory=MailConfig)
     teams: TeamsConfig = field(default_factory=TeamsConfig)
-    notion: NotionConfig = field(default_factory=NotionConfig)
     slack: SlackConfig = field(default_factory=SlackConfig)
     gmail: GmailConfig = field(default_factory=GmailConfig)
     jira: JiraConfig = field(default_factory=JiraConfig)
+    confluence: ConfluenceConfig = field(default_factory=ConfluenceConfig)
+    sharepoint: SharepointConfig = field(default_factory=SharepointConfig)
     links: LinksConfig = field(default_factory=LinksConfig)
     server: ServerConfig = field(default_factory=ServerConfig)
     obsidian: ObsidianConfig = field(default_factory=ObsidianConfig)
@@ -193,6 +209,11 @@ class Config:
         return p
 
     @property
+    def sharepoint_path(self) -> Path:
+        p = Path(os.path.expanduser(self.sharepoint.file))
+        return p if p.is_absolute() else self.base_dir / p
+
+    @property
     def links_path(self) -> Path:
         p = Path(os.path.expanduser(self.links.file))
         return p if p.is_absolute() else self.base_dir / p
@@ -204,10 +225,11 @@ SECTIONS = {
     "graph": GraphConfig,
     "mail": MailConfig,
     "teams": TeamsConfig,
-    "notion": NotionConfig,
     "slack": SlackConfig,
     "gmail": GmailConfig,
     "jira": JiraConfig,
+    "confluence": ConfluenceConfig,
+    "sharepoint": SharepointConfig,
     "links": LinksConfig,
     "server": ServerConfig,
     "obsidian": ObsidianConfig,
@@ -242,13 +264,16 @@ def load_config(path: str | Path) -> Config:
 
     # Secrets and overrides come from the environment so they never land in the file
     env = os.environ
-    cfg.notion.token = env.get("NOTION_TOKEN", cfg.notion.token)
     cfg.slack.token = env.get("SLACK_TOKEN", cfg.slack.token)
     cfg.gmail.user = env.get("GMAIL_USER", cfg.gmail.user)
     cfg.gmail.app_password = env.get("GMAIL_APP_PASSWORD", cfg.gmail.app_password)
     cfg.jira.base_url = env.get("JIRA_BASE_URL", cfg.jira.base_url).rstrip("/")
     cfg.jira.email = env.get("JIRA_EMAIL", cfg.jira.email)
     cfg.jira.api_token = env.get("JIRA_API_TOKEN", cfg.jira.api_token)
+    # 20261020 ++ RG #confluence same Atlassian Cloud account as Jira unless told otherwise
+    cfg.confluence.base_url = (env.get("CONFLUENCE_BASE_URL") or cfg.confluence.base_url or cfg.jira.base_url).rstrip("/")
+    cfg.confluence.email = env.get("CONFLUENCE_EMAIL") or cfg.confluence.email or cfg.jira.email
+    cfg.confluence.api_token = env.get("CONFLUENCE_API_TOKEN") or cfg.confluence.api_token or cfg.jira.api_token
     cfg.server.token = env.get("DIGEST_GUI_TOKEN", cfg.server.token)
     cfg.server.allowed_hosts += [h.strip() for h in env.get("DIGEST_ALLOWED_HOSTS", "").split(",") if h.strip()]
     cfg.llm.api_key = env.get("DIGEST_LLM_API_KEY", cfg.llm.api_key)
@@ -259,12 +284,11 @@ def load_config(path: str | Path) -> Config:
 
     if cfg.llm.json_mode not in ("json_object", "none"):
         raise ConfigError("[llm] json_mode deve essere 'json_object' o 'none'")
-    if (cfg.mail.enabled or cfg.teams.enabled) and not cfg.graph.client_id:
-        raise ConfigError("[graph] client_id mancante: serve per Outlook e Teams (vedi README)")
-    if cfg.notion.enabled and not cfg.notion.token:
-        raise ConfigError("[notion] token mancante (o variabile NOTION_TOKEN)")
+    if (cfg.mail.enabled or cfg.teams.enabled or cfg.sharepoint.enabled) and not cfg.graph.client_id:
+        raise ConfigError("[graph] client_id mancante: serve per Outlook, Teams e SharePoint (vedi README)")
     for name, hint in (("slack", "token (o SLACK_TOKEN)"), ("gmail", "user e app_password (o GMAIL_USER/GMAIL_APP_PASSWORD)"),
-                       ("jira", "base_url, email e api_token (o JIRA_*)")):
+                       ("jira", "base_url, email e api_token (o JIRA_*)"),
+                       ("confluence", "base_url, email e api_token (o CONFLUENCE_*, oppure quelli di Jira)")):
         section = getattr(cfg, name)
         if section.enabled and not section.is_configured():
             raise ConfigError(f"[{name}] configurazione incompleta: servono {hint}")
