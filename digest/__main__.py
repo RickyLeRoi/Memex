@@ -11,7 +11,7 @@ from pathlib import Path
 from . import __version__
 from .areas import AreaCatalog, collect_proposals, reclassify
 from .config import Config, ConfigError, load_config
-from .llm import LLM, LLMError
+from .llm import LLM, LLMError, LinkLLM
 from .models import Doc, FetchResult
 from .state import State
 from .tags import Vocabulary
@@ -126,6 +126,7 @@ def cmd_run(cfg: Config, args) -> int:
 
     state = State(cfg.data_path / "state.sqlite", ignore_seen=args.reprocess)
     llm = LLM(cfg.llm)
+    link_llm = LinkLLM(llm, LLM(cfg.llm_shared) if cfg.llm_shared.base_url else None)
     vocabulary = Vocabulary(state.tag_counts(), curated=state.get_link_tags())
     catalog = AreaCatalog.from_state(state)
     started = datetime.now().astimezone()
@@ -142,7 +143,7 @@ def cmd_run(cfg: Config, args) -> int:
         log.info("== %s ==", src)
         try:
             if src == "links":
-                _run_links(cfg, state, llm, args, result, summarize_link, vocabulary, catalog)
+                _run_links(cfg, state, link_llm, args, result, summarize_link, vocabulary, catalog)
                 continue
 
             since = forced_since or parse_iso(state.get_cursor(src)) or default_since(cfg.initial_lookback_days)
@@ -290,9 +291,9 @@ def _mark(state: State, src: str, docs: list[Doc], skipped: list[str]) -> None:
         state.mark_seen(src, ids)
 
 
-def _run_links(cfg: Config, state: State, llm: LLM, args, result: dict, summarize_link,
+def _run_links(cfg: Config, state: State, llm, args, result: dict, summarize_link,
                vocabulary: Vocabulary | None = None, catalog: AreaCatalog | None = None) -> None:
-    from .sources.links import fetch_links
+    from .sources.links import fetch_links, llm_for_link
 
     docs, errors = fetch_links(cfg, state, llm if not args.dry_run else None,
                                store_images=not args.dry_run, local_only=args.only_local)
@@ -303,7 +304,7 @@ def _run_links(cfg: Config, state: State, llm: LLM, args, result: dict, summariz
         return
     for d in docs:
         try:
-            ln = summarize_link(llm, cfg, d, vocabulary, catalog)
+            ln = summarize_link(llm_for_link(llm, state, d.url), cfg, d, vocabulary, catalog)
         except LLMError as e:
             state.link_failed(d.url, str(e))
             result["errors"].append(f"link {d.url}: {e}")
@@ -317,7 +318,7 @@ def _run_links(cfg: Config, state: State, llm: LLM, args, result: dict, summariz
         if d.meta.get("platform") in ("screenshot", "documento") and ln.get("kind") != "recipe":
             from .extract import extract_items
 
-            items, _, item_errors = extract_items(llm, cfg, [d], vocabulary, catalog)
+            items, _, item_errors = extract_items(llm_for_link(llm, state, d.url), cfg, [d], vocabulary, catalog)
             collect_proposals(state, items)
             result["items"] += items
             result["errors"] += [f"{d.url}: {e}" for e in item_errors]

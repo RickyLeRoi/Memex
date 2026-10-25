@@ -18,6 +18,16 @@ chunk_chars = 12000               # ~3.500 token: con Ollama alza il contesto (v
 vision_model = ""                 # es. "qwen2.5vl:7b" per leggere il testo nelle immagini dei post
 # extra_body = { top_p = 0.9 }    # parametri extra passati così come sono
 
+[llm_shared]
+# Facoltativo. Un secondo endpoint (es. onfeather-free) per i link NON privati: se risponde con un errore, il link
+# viene riprovato su [llm]. I link marcati "private" e tutte le altre fonti usano solo [llm].
+# Env: DIGEST_LLM_SHARED_BASE_URL, _MODEL, _API_KEY, _VISION_MODEL. Senza base_url è spento.
+# "first:google" = il primo modello google/* elencato dall'endpoint oggi; se sparisce passa al successivo.
+base_url = ""
+model = "auto"
+api_key = "local"
+vision_model = "first:google"
+
 [extract]
 me = "Nome Cognome"          # serve a riconoscere i task assegnati a te
 language = "italiano"

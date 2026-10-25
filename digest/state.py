@@ -56,6 +56,9 @@ class State:
             self.db.execute("ALTER TABLE links ADD COLUMN analysis TEXT")
         if "image" not in columns:
             self.db.execute("ALTER TABLE links ADD COLUMN image TEXT")
+        # 20261025 ++ RG #shared_llm 1 = the user asked for this link to be analysed locally only
+        if "private" not in columns:
+            self.db.execute("ALTER TABLE links ADD COLUMN private INTEGER DEFAULT 0")
         item_columns = {row[1] for row in self.db.execute("PRAGMA table_info(items)")}
         for column in ("tags", "tag_origin", "area", "area_origin"):
             if column not in item_columns:
@@ -108,12 +111,17 @@ class State:
         )
         self.db.commit()
 
-    def add_link(self, url: str, note: str = "") -> bool:
+    def add_link(self, url: str, note: str = "", private: bool = False) -> bool:
         cur = self.db.execute(
-            "INSERT OR IGNORE INTO links(url, note, added_at) VALUES(?, ?, ?)", (url, note, iso_z(utcnow()))
+            "INSERT OR IGNORE INTO links(url, note, added_at, private) VALUES(?, ?, ?, ?)",
+            (url, note, iso_z(utcnow()), int(private)),
         )
         self.db.commit()
         return cur.rowcount > 0
+
+    def link_private(self, url: str) -> bool:
+        row = self.db.execute("SELECT private FROM links WHERE url=?", (url,)).fetchone()
+        return bool(row and row[0])
 
     def pending_links(self, max_attempts: int) -> list[tuple[str, str]]:
         rows = self.db.execute(

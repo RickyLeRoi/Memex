@@ -483,6 +483,11 @@ def queued_links_text(cfg: Config, state: State) -> str:
     return "\n".join(f"{url}  {note}".rstrip() for url, note in read_links_file(cfg.links_path) if url not in done)
 
 
+def llm_for_link(llm, state: State, url: str):
+    """The LLM that analyses this link: plain LLMs serve every link, a LinkLLM picks by the privacy flag."""
+    return llm.for_link(state.link_private(url)) if hasattr(llm, "for_link") else llm
+
+
 def sync_links(cfg: Config, state: State) -> int:
     added = 0
     for url, note in read_links_file(cfg.links_path):
@@ -500,6 +505,8 @@ def fetch_links(cfg: Config, state: State, llm: LLM | None, http: httpx.Client |
         sync_links(cfg, state)
     fetcher = LinkFetcher(cfg, llm, http)
     docs, errors = [], []
+    # 20261025 ++ RG #shared_llm each link is analysed by the endpoint its own privacy flag selects
+    llm_for = lambda url: llm_for_link(llm, state, url)
     pending = state.pending_links(cfg.links.max_attempts)
     if local_only:
         pending = [(url, note) for url, note in pending if url.startswith((IMAGE_SCHEME, DOC_SCHEME))]
@@ -507,10 +514,12 @@ def fetch_links(cfg: Config, state: State, llm: LLM | None, http: httpx.Client |
     for position, (url, note) in enumerate(pending, 1):
         log.info("[%d/%d] %s (tentativo %d/%d)", position, len(pending), url, state.link_attempts(url) + 1,
                  cfg.links.max_attempts)
+        link_llm = llm_for(url)
+        fetcher.llm = link_llm
         if url.startswith((IMAGE_SCHEME, DOC_SCHEME)):
             builder = screenshot_doc if url.startswith(IMAGE_SCHEME) else pdf_doc
             try:
-                docs.append(builder(cfg, llm, url, note))
+                docs.append(builder(cfg, link_llm, url, note))
             except Exception as e:
                 log.info("Contenuto locale %s non leggibile: %s", url, e)
                 state.link_failed(url, str(e))

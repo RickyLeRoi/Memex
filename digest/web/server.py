@@ -241,7 +241,7 @@ def make_handler(service: Service, dist_dir: Path):
                 raise ApiError(413, "file too large")
             data = self.rfile.read(length)
             try:
-                return queue(data, unquote(self.headers.get("X-Note") or ""))
+                return queue(data, unquote(self.headers.get("X-Note") or ""), self.headers.get("X-Private") == "1")
             except (ImageRejected, PdfError) as e:
                 raise ApiError(400, str(e)) from None
 

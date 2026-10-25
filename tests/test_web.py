@@ -190,6 +190,15 @@ class HttpTests(unittest.TestCase):
         self.service.jobs[job.id] = job
         self.assertEqual(self.call("POST", f"/api/jobs/{job.id}/cancel", {})[0], 409)
 
+    def test_private_flag_travels_through_the_api(self):
+        self.call("POST", "/api/ingest/links", {
+            "links": [{"url": "https://p.example.com/x", "private": True}, {"url": "https://s.example.com/y"}],
+            "queue_only": True,
+        })
+        state = State(self.service.cfg.data_path / "state.sqlite")
+        self.assertTrue(state.link_private("https://p.example.com/x"))
+        self.assertFalse(state.link_private("https://s.example.com/y"))
+
     def test_queue_only_adds_the_link_without_starting_a_job(self):
         status, data = self.call(
             "POST", "/api/ingest/links", {"links": [{"url": "https://queued.example.com/x", "note": "da leggere"}], "queue_only": True}

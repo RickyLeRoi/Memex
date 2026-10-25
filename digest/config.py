@@ -174,6 +174,8 @@ class Config:
     reports_dir: str = "reports"
     initial_lookback_days: int = 3
     llm: LLMConfig = field(default_factory=LLMConfig)
+    # 20261025 ++ RG #shared_llm optional second endpoint (onfeather-free) for links that are not private
+    llm_shared: LLMConfig = field(default_factory=lambda: LLMConfig(base_url="", model="auto"))
     extract: ExtractConfig = field(default_factory=ExtractConfig)
     graph: GraphConfig = field(default_factory=GraphConfig)
     mail: MailConfig = field(default_factory=MailConfig)
@@ -221,6 +223,7 @@ class Config:
 
 SECTIONS = {
     "llm": LLMConfig,
+    "llm_shared": LLMConfig,
     "extract": ExtractConfig,
     "graph": GraphConfig,
     "mail": MailConfig,
@@ -276,9 +279,15 @@ def load_config(path: str | Path) -> Config:
     cfg.confluence.api_token = env.get("CONFLUENCE_API_TOKEN") or cfg.confluence.api_token or cfg.jira.api_token
     cfg.server.token = env.get("DIGEST_GUI_TOKEN", cfg.server.token)
     cfg.server.allowed_hosts += [h.strip() for h in env.get("DIGEST_ALLOWED_HOSTS", "").split(",") if h.strip()]
-    cfg.llm.api_key = env.get("DIGEST_LLM_API_KEY", cfg.llm.api_key)
-    cfg.llm.base_url = env.get("DIGEST_LLM_BASE_URL", cfg.llm.base_url).rstrip("/")
-    cfg.llm.model = env.get("DIGEST_LLM_MODEL", cfg.llm.model)
+    # 20261025 ** RG #empty_env_var an empty variable (compose passes them through blank) must not wipe the file value:
+    # an empty api_key sent "Authorization: Bearer " and every LLM call died with "Illegal header value"
+    cfg.llm.api_key = env.get("DIGEST_LLM_API_KEY") or cfg.llm.api_key
+    cfg.llm.base_url = (env.get("DIGEST_LLM_BASE_URL") or cfg.llm.base_url).rstrip("/")
+    cfg.llm.model = env.get("DIGEST_LLM_MODEL") or cfg.llm.model
+    cfg.llm_shared.base_url = (env.get("DIGEST_LLM_SHARED_BASE_URL") or cfg.llm_shared.base_url).rstrip("/")
+    cfg.llm_shared.model = env.get("DIGEST_LLM_SHARED_MODEL") or cfg.llm_shared.model
+    cfg.llm_shared.api_key = env.get("DIGEST_LLM_SHARED_API_KEY") or cfg.llm_shared.api_key
+    cfg.llm_shared.vision_model = env.get("DIGEST_LLM_SHARED_VISION_MODEL") or cfg.llm_shared.vision_model
     cfg.graph.client_id = env.get("DIGEST_GRAPH_CLIENT_ID", cfg.graph.client_id)
     cfg.graph.tenant = env.get("DIGEST_GRAPH_TENANT", cfg.graph.tenant)
 

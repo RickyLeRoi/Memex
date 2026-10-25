@@ -180,6 +180,25 @@ class ConfigEnvTests(unittest.TestCase):
         self.assertEqual(cfg.server.token, "abc")
         self.assertEqual(cfg.server.allowed_hosts, ["from-file.lan", "192.168.1.20", "digest.lan"])
 
+    def test_empty_llm_variables_keep_the_value_from_the_file(self):
+        cfg = self.load(
+            {"DIGEST_LLM_API_KEY": "", "DIGEST_LLM_BASE_URL": "", "DIGEST_LLM_MODEL": ""},
+            '[llm]\napi_key = "local"\nbase_url = "http://ollama:11434/v1"\nmodel = "gemma4:e2b"\n',
+        )
+        self.assertEqual((cfg.llm.api_key, cfg.llm.base_url, cfg.llm.model), ("local", "http://ollama:11434/v1", "gemma4:e2b"))
+
+    def test_llm_variables_still_override_the_file_when_set(self):
+        cfg = self.load({"DIGEST_LLM_API_KEY": "k", "DIGEST_LLM_MODEL": "m"}, '[llm]\napi_key = "local"\nmodel = "x"\n')
+        self.assertEqual((cfg.llm.api_key, cfg.llm.model), ("k", "m"))
+
+    def test_the_shared_llm_is_off_unless_an_endpoint_is_set(self):
+        cfg = self.load({"DIGEST_LLM_SHARED_BASE_URL": ""})
+        self.assertEqual(cfg.llm_shared.base_url, "")
+        cfg = self.load({"DIGEST_LLM_SHARED_BASE_URL": "http://of:4141/v1/", "DIGEST_LLM_SHARED_API_KEY": "k"},
+                        '[llm_shared]\nmodel = "auto"\nvision_model = "first:google"\n')
+        self.assertEqual((cfg.llm_shared.base_url, cfg.llm_shared.model, cfg.llm_shared.vision_model, cfg.llm_shared.api_key),
+                         ("http://of:4141/v1", "auto", "first:google", "k"))
+
     def test_unknown_server_keys_are_rejected(self):
         with self.assertRaises(ConfigError):
             self.load({}, "[server]\nport = 1\n")

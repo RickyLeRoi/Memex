@@ -11,6 +11,11 @@ from .config import LLMConfig
 
 log = logging.getLogger(__name__)
 
+#: 20261025 ++ RG #shared_llm "first:google" means the first google/* model the endpoint lists today, so a model
+#: that disappears does not need a new build: it is skipped and the next one is asked for.
+FIRST_PREFIX = "first:"
+MODEL_GONE = (400, 404, 410)
+
 
 class LLMError(Exception):
     def __init__(self, msg: str, status: int | None = None):
@@ -49,6 +54,19 @@ class LLM:
         self.cfg = cfg
         self.http = http or httpx.Client(timeout=cfg.timeout)
         self._json_supported = cfg.json_mode == "json_object"
+        self._resolved: dict[str, str] = {}
+        self._gone: set[str] = set()
+
+    def _model(self, name: str) -> str:
+        if not name.startswith(FIRST_PREFIX):
+            return name
+        if name not in self._resolved:
+            provider = name[len(FIRST_PREFIX):]
+            candidates = [m for m in self.list_models() if m.startswith(f"{provider}/") and m not in self._gone]
+            if not candidates:
+                raise LLMError(f"nessun modello {provider}/* disponibile su {self.cfg.base_url}")
+            self._resolved[name] = candidates[0]
+        return self._resolved[name]
 
     def _post(self, payload: dict) -> str:
         url = f"{self.cfg.base_url.rstrip('/')}/chat/completions"
@@ -67,8 +85,19 @@ class LLM:
 
     def chat(self, messages: list[dict], json_out: bool = False, model: str | None = None,
              max_tokens: int | None = None) -> str:
+        wanted = model or self.cfg.model
+        try:
+            return self._chat(messages, json_out, self._model(wanted), max_tokens)
+        except LLMError as e:
+            if not (wanted.startswith(FIRST_PREFIX) and e.status in MODEL_GONE and wanted in self._resolved):
+                raise
+            log.warning("Il modello %s non risponde (%s), provo il prossimo", self._resolved[wanted], e.status)
+            self._gone.add(self._resolved.pop(wanted))
+            return self._chat(messages, json_out, self._model(wanted), max_tokens)
+
+    def _chat(self, messages: list[dict], json_out: bool, model: str, max_tokens: int | None) -> str:
         payload = {
-            "model": model or self.cfg.model,
+            "model": model,
             "messages": messages,
             "temperature": self.cfg.temperature,
             "max_tokens": max_tokens or self.cfg.max_tokens,
@@ -119,3 +148,45 @@ class LLM:
                           headers={"Authorization": f"Bearer {self.cfg.api_key}"})
         r.raise_for_status()
         return [m.get("id", "?") for m in r.json().get("data", [])]
+
+
+class FallbackLLM:
+    """Same calls as LLM: ask the primary endpoint, and on any LLM error ask the backup instead."""
+
+    def __init__(self, primary: LLM, backup: LLM):
+        self.primary, self.backup = primary, backup
+        self.cfg = backup.cfg
+
+    def _either(self, call: str, *args, **kwargs):
+        try:
+            return getattr(self.primary, call)(*args, **kwargs)
+        except (LLMError, httpx.HTTPError) as e:
+            log.info("Endpoint condiviso non ha risposto (%s), riprovo in locale", e)
+            return getattr(self.backup, call)(*args, **kwargs)
+
+    def chat(self, *args, **kwargs):
+        return self._either("chat", *args, **kwargs)
+
+    def chat_json(self, *args, **kwargs):
+        return self._either("chat_json", *args, **kwargs)
+
+    def describe_image(self, *args, **kwargs):
+        return self._either("describe_image", *args, **kwargs)
+
+    def list_models(self):
+        return self.backup.list_models()
+
+
+class LinkLLM:
+    """Picks the LLM for one link: private stays local, the rest try the shared endpoint first."""
+
+    def __init__(self, local: LLM, shared: LLM | None = None):
+        self.local, self.shared = local, shared
+
+    def for_link(self, private: bool):
+        if private or self.shared is None:
+            return self.local
+        return FallbackLLM(self.shared, self.local)
+
+    def __getattr__(self, name: str):
+        return getattr(self.local, name)

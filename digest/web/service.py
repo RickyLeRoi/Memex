@@ -197,7 +197,7 @@ class Service:
                 note = str(entry.get("note", "")).strip()
                 if not url.lower().startswith(("http://", "https://")):
                     continue
-                if state.add_link(url, note):
+                if state.add_link(url, note, entry.get("private") is True):
                     if url not in listed:
                         fh.write(url + (f"  {note}" if note else "") + "\n")
                     added += 1
@@ -455,18 +455,18 @@ class Service:
         return {key: analysis.get(key) for key in keys} | {"kind": analysis.get("kind") or "link"}
 
     @with_state
-    def queue_screenshot(self, state, data: bytes, note: str) -> dict:
+    def queue_screenshot(self, state, data: bytes, note: str, private: bool = False) -> dict:
         name = store_upload(self.cfg.data_path / "media", data, self.cfg.links.max_screenshot_bytes)
-        return self._enqueue(state, f"{IMAGE_SCHEME}{name}", name, note)
+        return self._enqueue(state, f"{IMAGE_SCHEME}{name}", name, note, private)
 
     @with_state
-    def queue_document(self, state, data: bytes, note: str) -> dict:
+    def queue_document(self, state, data: bytes, note: str, private: bool = False) -> dict:
         name = store_pdf(self.cfg.data_path / "docs", data, self.cfg.links.max_pdf_bytes)
-        return self._enqueue(state, f"{DOC_SCHEME}{name}", name, note)
+        return self._enqueue(state, f"{DOC_SCHEME}{name}", name, note, private)
 
     @staticmethod
-    def _enqueue(state: State, url: str, name: str, note: str) -> dict:
-        added = state.add_link(url, note.strip()[:200])
+    def _enqueue(state: State, url: str, name: str, note: str, private: bool = False) -> dict:
+        added = state.add_link(url, note.strip()[:200], private)
         if not added and (state.link_row(url) or {}).get("status") == "error":
             state.reset_link(url)  # uploading the same file again retries a failed one
             added = True
