@@ -40,6 +40,16 @@ Con LM Studio imposti la "Context Length" quando carichi il modello. Con un cont
 
 I modelli "reasoning" che rispondono con `<think>…</think>` sono gestiti. Se il tuo server non accetta `response_format`, il tool se ne accorge da solo e riprova senza. Puoi anche impostare `json_mode = "none"`.
 
+### Endpoint condiviso e link privati (facoltativo)
+
+Per i **link** puoi usare un secondo endpoint, di solito `onfeather-free` (un router che smista le richieste sui tier gratuiti di vari provider), e tenere il modello locale per tutto il resto. Si attiva con la sezione `[llm_shared]` (vedi `config.example.toml`) o con le variabili `DIGEST_LLM_SHARED_BASE_URL`, `_MODEL`, `_API_KEY` e `_VISION_MODEL`. Senza `base_url` è spento e tutto resta locale.
+
+- Ogni link ha un flag **privato**. Privato: lo analizza solo il modello di `[llm]`. Non privato (il default): prova prima l'endpoint condiviso e, se risponde con un errore (quota, rete, contenuto non elaborabile), **riprova subito in locale**.
+- Mail, chat, Teams, Slack, Gmail, Jira e Confluence usano sempre e solo il modello locale.
+- Il flag si imposta con la casella «Privato» nella GUI (link e file), con `"private": true` nell'API, o dal bot Telegram.
+- Come nome del modello puoi scrivere `first:google`: significa «il primo `google/*` che l'endpoint elenca adesso». Se quel modello sparisce (errore 400, 404 o 410) passa al successivo, senza toccare la configurazione.
+- Il contenuto dei link non privati può essere usato dal provider per addestrare i suoi modelli: i link che contengono roba tua vanno segnati come privati.
+
 ## 2. Outlook e Teams (Microsoft Graph)
 
 Serve una *app registration* tua sul tenant, solo con permessi **delegati**: il tool legge quello che vedi tu, niente di più.
@@ -177,6 +187,8 @@ I segreti meglio da variabili d'ambiente: `SLACK_TOKEN`, `GMAIL_USER`, `GMAIL_AP
 
 ## Uso
 
+I link si aggiungono dalla GUI, da `links.txt`, da `python -m digest add` o dall'API. L'API accetta anche il solo accodamento, senza avviare l'elaborazione: `POST /api/ingest/links` con `{"links": [{"url": "...", "note": "...", "private": false}], "queue_only": true}`. Un link accodato resta in coda finché non parte un run (dalla GUI o dallo scheduler). Immagini e PDF si caricano con `POST /api/uploads/images` e `/api/uploads/documents` (corpo grezzo, intestazioni `Content-Type`, `X-Note` e, per i privati, `X-Private: 1`).
+
 ```bash
 python -m digest run                         # tutte le sorgenti abilitate
 python -m digest run --sources links         # solo i link
@@ -212,6 +224,7 @@ docker compose up -d --build                         # GUI + API su http://127.0
 - **Obsidian**: monta il vault (`- /percorso/Vault:/vault` in `docker-compose.yml`) e imposta `[obsidian] vault = "/vault"`.
 - **Rete con TLS intercettato** (proxy aziendale): monta il certificato e decommenta `SSL_CERT_FILE` nella compose, altrimenti i siti falliscono con `CERTIFICATE_VERIFY_FAILED`.
 - **Salute**: l'endpoint `/healthz` non richiede il token e non restituisce dati; è quello che usa l'`HEALTHCHECK`.
+- **Sulla VM di casa** memex gira come `memex:local`, costruito da `~/Projects/memex`, dentro la compose condivisa `/docker/conf/compose.yaml` (niente registry, Watchtower spento). `scripts/deploy.sh` fa `git pull --ff-only` e `docker compose up -d --build memex`. Le variabili LLM stanno in `/docker/conf/.env.memex` e **hanno la precedenza** su `config.toml`; una variabile vuota viene ignorata.
 
 ## Sviluppo
 
@@ -243,7 +256,7 @@ Il primo `login` va fatto a mano da terminale. I run schedulati non sono interat
 digest/
   __main__.py      CLI (init, login, check, add, links, run, serve, reclassify)
   config.py        caricamento TOML + override da env
-  llm.py           client OpenAI-compatibile, parsing JSON robusto, visione
+  llm.py           client OpenAI-compatibile, parsing JSON robusto, visione; fallback e scelta per link
   extract.py       prompt, suddivisione in blocchi, normalizzazione e dedup
   areas.py         aree (macro-argomenti), proposte e riclassificazione
   tags.py          vocabolario condiviso dei tag
@@ -270,6 +283,8 @@ tests/             test del backend (unittest)
 ```
 
 Test: `python -m unittest discover -s tests -t .`
+
+Come è fatto dentro, i flussi di dati, il modello a due endpoint e il deploy: [TECH_README.md](TECH_README.md).
 
 ## Licenza
 
