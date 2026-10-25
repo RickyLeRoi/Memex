@@ -23,7 +23,7 @@ export const api = {
   saveTags: (tags: string[]) => request<{ linking: string[] }>("PUT", "/api/graph/tags", { tags }),
   retryLinks: () => request<{ ok: boolean }>("POST", "/api/links/retry"),
   reprocessLink: (url: string) => request<{ ok: boolean }>("POST", "/api/links/reprocess", { url }),
-  ingestLinks: (links: { url: string; note: string }[]) =>
+  ingestLinks: (links: { url: string; note: string; private?: boolean }[]) =>
     request<{ job: string; added: number; already_ingested: number }>("POST", "/api/ingest/links", { links }),
   ingestLocalFiles: () =>
     request<{ job: string }>("POST", "/api/ingest/links", { links: [], only_local: true }),
@@ -42,11 +42,11 @@ export const api = {
   assignArea: (kind: DeleteKind, id: string, area: string) =>
     request<{ area: string; area_origin: TagOrigin }>("POST", "/api/areas/assign", { kind, id, area }),
   linkDetail: (url: string) => request<LinkDetail>("GET", `/api/links/detail?url=${encodeURIComponent(url)}`),
-  uploadFile: async (file: File, note: string) => {
+  uploadFile: async (file: File, note: string, isPrivate = false) => {
     const endpoint = file.type === "application/pdf" ? "documents" : "images";
     const response = await fetch(`/api/uploads/${endpoint}`, {
       method: "POST",
-      headers: { "Content-Type": file.type, "X-Note": encodeURIComponent(note) },
+      headers: { "Content-Type": file.type, "X-Note": encodeURIComponent(note), ...(isPrivate ? { "X-Private": "1" } : {}) },
       body: file,
     });
     const data = await response.json().catch(() => ({}));

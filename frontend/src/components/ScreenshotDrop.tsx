@@ -23,6 +23,7 @@ export function ScreenshotDrop({ busy, onStart }: Props) {
   const [staged, setStaged] = useState<Staged[]>([]);
   const [problems, setProblems] = useState<string[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const stagedRef = useRef<Staged[]>([]);
   const nextId = useRef(0);
@@ -65,7 +66,7 @@ export function ScreenshotDrop({ busy, onStart }: Props) {
   const ingest = () => {
     const batch = staged;
     onStart(async () => {
-      for (const item of batch) await api.uploadFile(item.file, item.note);
+      for (const item of batch) await api.uploadFile(item.file, item.note, isPrivate);
       batch.forEach((s) => URL.revokeObjectURL(s.preview));
       setStaged([]);
       return api.ingestLocalFiles();
@@ -127,6 +128,10 @@ export function ScreenshotDrop({ busy, onStart }: Props) {
           ))}
         </ul>
       )}
+      <label className="row">
+        <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} />
+        <span>Privato: analizzalo solo con il modello locale</span>
+      </label>
       <div className="row">
         <button className="primary" disabled={staged.length === 0 || busy} onClick={ingest}>
           {busy ? "Ingest in corso…" : `Ingerisci ${staged.length || ""} file`.trim()}

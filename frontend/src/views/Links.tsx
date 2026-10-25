@@ -26,6 +26,8 @@ export function Links() {
   const [rows, setRows] = useState<LinkRow[]>([]);
   const [toDelete, setToDelete] = useState<DeleteTarget | null>(null);
   const [alreadyIngested, setAlreadyIngested] = useState(0);
+  // 20261025 ++ RG #shared_llm private links are analysed by the local model only
+  const [isPrivate, setIsPrivate] = useState(false);
   const loadRows = useCallback(() => {
     api.links().then(setRows).catch(() => undefined);
   }, []);
@@ -42,7 +44,7 @@ export function Links() {
 
   const ingest = () =>
     start(async () => {
-      const result = await api.ingestLinks(valid.map(({ url, note }) => ({ url, note })));
+      const result = await api.ingestLinks(valid.map(({ url, note }) => ({ url, note, private: isPrivate })));
       setText("");
       setAlreadyIngested(result.already_ingested);
       loadRows();
@@ -84,6 +86,10 @@ export function Links() {
             {alreadyIngested} {alreadyIngested === 1 ? "link era già ingerito" : "link erano già ingeriti"}: non vengono rielaborati e sono stati tolti da links.txt.
           </div>
         )}
+        <label className="row">
+          <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} />
+          <span>Privato: analizzalo solo con il modello locale</span>
+        </label>
         <div className="row">
           <button className="primary" disabled={valid.length === 0 || busy} onClick={ingest}>
             {busy ? "Ingest in corso…" : `Ingerisci ${valid.length || ""} link`.trim()}
