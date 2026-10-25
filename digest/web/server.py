@@ -278,6 +278,9 @@ def make_handler(service: Service, dist_dir: Path):
                 if not isinstance(links, list):
                     raise ApiError(400, "links must be a list")
                 outcome = service.add_links([x for x in links if isinstance(x, dict)])
+                # 20261025 ++ RG #queue_only the caller only wants the link on the list; the scheduled run picks it up
+                if body.get("queue_only") is True:
+                    return {"job": None, **outcome}
                 sources = ["links"]
             else:
                 requested = body.get("sources") or FAMILIES[family]

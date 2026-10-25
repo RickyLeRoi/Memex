@@ -190,6 +190,15 @@ class HttpTests(unittest.TestCase):
         self.service.jobs[job.id] = job
         self.assertEqual(self.call("POST", f"/api/jobs/{job.id}/cancel", {})[0], 409)
 
+    def test_queue_only_adds_the_link_without_starting_a_job(self):
+        status, data = self.call(
+            "POST", "/api/ingest/links", {"links": [{"url": "https://queued.example.com/x", "note": "da leggere"}], "queue_only": True}
+        )
+        self.assertEqual(status, 200)
+        self.assertIsNone(data["job"])
+        self.assertEqual(data["added"], 1)
+        self.assertEqual(self.service.jobs, {})
+
     def test_ingest_unknown_family_is_404(self):
         self.assertEqual(self.call("POST", "/api/ingest/nope", {})[0], 404)
 
