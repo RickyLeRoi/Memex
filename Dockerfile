@@ -27,7 +27,10 @@ COPY pyproject.toml ./
 COPY digest/ digest/
 RUN pip install ".[${EXTRAS}]"
 # Chromium + its system libraries, installed as root at build time: the runtime filesystem is read-only.
-RUN case ",${EXTRAS}," in *,render,*|*,all,*) playwright install --with-deps chromium \
+# 20261110 ** RG #playwright_needs_libatomic
+RUN case ",${EXTRAS}," in *,render,*|*,all,*) \
+        apt-get update && apt-get install -y --no-install-recommends libatomic1 \
+        && playwright install --with-deps chromium \
         && chmod -R a+rX /opt/ms-playwright && rm -rf /var/lib/apt/lists/* ;; esac
 
 COPY --from=frontend /build/frontend/dist frontend/dist
